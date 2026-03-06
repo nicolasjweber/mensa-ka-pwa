@@ -1,0 +1,12 @@
+node_modules/
+.wrangler/
+coverage/
+dist/
+.cache/
+*.log
+.env
+.env.*
+!.env.example
+worker-configuration.d.ts
+pwa/TODO.md
+pwa/__pycache__/

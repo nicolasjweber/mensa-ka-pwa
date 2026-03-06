@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#009682" />
+    <title>Mensa KA PWA</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./assets/icons/icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="hero">
+        <h1>Mensa KA PWA</h1>
+        <p class="subtitle">Fast daily overview with offline fallback</p>
+      </div>
+      <button id="installButton" class="install-button" hidden>Install</button>
+    </header>
+
+    <main class="main">
+      <section class="controls">
+        <div class="group date-nav">
+          <label>Date</label>
+          <div class="date-row">
+            <button id="prevDayButton" type="button" aria-label="Previous day">Prev</button>
+            <button id="nextDayButton" type="button" aria-label="Next day">Next</button>
+            <button id="refreshButton" type="button" aria-label="Refresh current day">Refresh</button>
+          </div>
+        </div>
+
+        <div class="group canteen-group">
+          <label for="canteenSelect">Canteen</label>
+          <select id="canteenSelect"></select>
+        </div>
+
+        <div class="group price-group">
+          <label for="priceModeSelect">Price mode</label>
+          <select id="priceModeSelect">
+            <option value="student" selected>Student</option>
+            <option value="employee">Employee</option>
+            <option value="pupil">Pupil</option>
+            <option value="guest">Guest</option>
+          </select>
+        </div>
+
+        <div class="group search-group">
+          <label for="searchInput">Search meals</label>
+          <input id="searchInput" type="search" placeholder="e.g. curry, pasta, vegan" />
+        </div>
+      </section>
+
+      <section class="meta">
+        <p id="dateDisplay" class="date-display" aria-live="polite"></p>
+        <p id="statusMessage" class="status" role="status" aria-live="polite"></p>
+        <p id="summaryMessage" class="summary" aria-live="polite"></p>
+      </section>
+
+      <section id="mealPlanContainer" class="meal-plan" aria-live="polite"></section>
+    </main>
+
+    <footer class="footer">
+      <a
+        id="githubLink"
+        href="https://github.com/nicolasjweber"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        View on GitHub
+      </a>
+    </footer>
+
+    <div id="imageModal" class="image-modal" hidden>
+      <div class="image-modal-toolbar">
+        <p id="imageModalCaption" class="image-modal-caption"></p>
+        <p id="imageModalCounter" class="image-modal-counter"></p>
+        <button id="imageModalClose" class="image-modal-close" type="button" aria-label="Close image">Close</button>
+      </div>
+      <div class="image-modal-stage">
+        <button id="imageModalPrev" class="image-modal-nav" type="button" aria-label="Previous image">Prev</button>
+        <img id="imageModalContent" class="image-modal-content" alt="Meal image" />
+        <button id="imageModalNext" class="image-modal-nav" type="button" aria-label="Next image">Next</button>
+      </div>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
