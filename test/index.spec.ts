@@ -32,6 +32,39 @@ describe("cors-header-proxy", () => {
 		expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
 	});
 
+	it("blocks public playground access", async () => {
+		const response = await worker.fetch(
+			new Request("https://proxy.example/mensa-ka/"),
+		);
+
+		expect(response.status).toBe(403);
+	});
+
+	it("allows playground access from tailscale referers", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				new Response(
+					`<script>window.GraphQLPlayground.init(root, { endpoint: "/" })</script>`,
+					{
+						headers: { "Content-Type": "text/html; charset=utf-8" },
+					},
+				),
+			),
+		);
+
+		const response = await worker.fetch(
+			new Request("https://proxy.example/mensa-ka/", {
+				headers: {
+					Referer: "https://admin.tail123.ts.net/tools",
+				},
+			}),
+		);
+
+		expect(response.status).toBe(200);
+		expect(await response.text()).toContain(`endpoint: "/mensa-ka/"`);
+	});
+
 	it("allows same-origin POST requests", async () => {
 		vi.stubGlobal(
 			"fetch",

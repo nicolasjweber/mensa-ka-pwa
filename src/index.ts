@@ -39,6 +39,28 @@ function addCorsHeaders(headers: Headers, request: Request) {
 	);
 }
 
+function getSourceUrl(request: Request) {
+	const origin = request.headers.get("Origin");
+	if (origin) {
+		try {
+			return new URL(origin);
+		} catch {
+			return null;
+		}
+	}
+
+	const referer = request.headers.get("Referer");
+	if (referer) {
+		try {
+			return new URL(referer);
+		} catch {
+			return null;
+		}
+	}
+
+	return null;
+}
+
 function isAllowedOrigin(origin: string | null, requestUrl: URL) {
 	if (!origin) {
 		return false;
@@ -53,6 +75,11 @@ function isAllowedOrigin(origin: string | null, requestUrl: URL) {
 	} catch {
 		return false;
 	}
+}
+
+function isPlaygroundRequestAllowed(request: Request) {
+	const sourceUrl = getSourceUrl(request);
+	return sourceUrl?.hostname.endsWith(TAILSCALE_ORIGIN_SUFFIX) ?? false;
 }
 
 function rewritePlaygroundHtml(body: string) {
@@ -140,6 +167,17 @@ export default {
 
 		if (url.pathname.startsWith(PROXY_ENDPOINT)) {
 			const origin = request.headers.get("Origin");
+			const proxiedPath = url.pathname.replace(PROXY_ENDPOINT, "");
+
+			if (
+				request.method === "GET" &&
+				proxiedPath === "" &&
+				!isPlaygroundRequestAllowed(request)
+			) {
+				return new Response("Forbidden: Playground access requires Tailscale.", {
+					status: 403,
+				});
+			}
 
 			if (request.method !== "OPTIONS") {
 				if (request.method !== "GET" || origin) {
