@@ -1,10 +1,8 @@
-var __defProp = Object.defineProperty;
-var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
+const API_URL = "https://api.mensa-ka.de/";
+const PROXY_ENDPOINT = "/mensa-ka/";
+const TAILSCALE_ORIGIN_SUFFIX = ".ts.net";
 
-// src/index.ts
-var API_URL = "https://api.mensa-ka.de/";
-var PROXY_ENDPOINT = "/mensa-ka/";
-var LANDING_PAGE = `
+const LANDING_PAGE = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,9 +18,9 @@ var LANDING_PAGE = `
     </style>
 </head>
 <body>
-    <h1>\u{1F374} mensa-ka api cors proxy</h1>
+    <h1>&#x1F374; mensa-ka api cors proxy</h1>
     <p>This is a lightweight proxy to bypass CORS restrictions for the <strong>mensa-ka.de</strong> API.</p>
-    
+
     <div class="card">
         <h3>Usage</h3>
         <p>Prepend the proxy path to your API calls:</p>
@@ -32,73 +30,139 @@ var LANDING_PAGE = `
 </html>
 `;
 
-async function handleRequest(request) {
-  const url = new URL(request.url);
-  const path = url.pathname.replace(PROXY_ENDPOINT, "");
-  const upstreamUrl = new URL(path, API_URL);
-  const upstream = new Request(upstreamUrl, request);
-  upstream.headers.set("Origin", new URL(API_URL).origin);
-  let response = await fetch(upstream);
-  response = new Response(response.body, response);
-  response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Methods", "GET,HEAD,POST,OPTIONS");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-  return response;
+function addCorsHeaders(headers: Headers, request: Request) {
+	headers.set("Access-Control-Allow-Origin", "*");
+	headers.set("Access-Control-Allow-Methods", "GET,HEAD,POST,OPTIONS");
+	headers.set(
+		"Access-Control-Allow-Headers",
+		request.headers.get("Access-Control-Request-Headers") ?? "Content-Type",
+	);
 }
-__name(handleRequest, "handleRequest");
 
-function handleOptions(request) {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-      "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") ?? "Content-Type",
-      "Access-Control-Max-Age": "86400"
-    }
-  });
+function isAllowedOrigin(origin: string | null, requestUrl: URL) {
+	if (!origin) {
+		return false;
+	}
+
+	try {
+		const originUrl = new URL(origin);
+		return (
+			originUrl.origin === requestUrl.origin ||
+			originUrl.hostname.endsWith(TAILSCALE_ORIGIN_SUFFIX)
+		);
+	} catch {
+		return false;
+	}
 }
-__name(handleOptions, "handleOptions");
 
-var index_default = {
-  async fetch(request) {
-    const url = new URL(request.url);
-    
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(LANDING_PAGE, {
-        headers: { "Content-Type": "text/html;charset=UTF-8" }
-      });
-    }
-    
-    // Handle the Proxy Endpoint
-	// Restricted to the Tailscale Network
-    if (url.pathname.startsWith(PROXY_ENDPOINT)) {
-      
-      const origin = request.headers.get("Origin");
-      
-      if (request.method !== "OPTIONS") {
-        if (request.method !== "GET" || origin) {
-          if (!origin || !origin.endsWith(".ts.net")) {
-            return new Response("Forbidden: Access restricted to Tailscale network.", { status: 403 });
-          }
-        }
-      }
+function rewritePlaygroundHtml(body: string) {
+	return body.replace(
+		/(["']?endpoint["']?\s*:\s*["'])\/(["'])/g,
+		`$1${PROXY_ENDPOINT}$2`,
+	);
+}
 
-      if (request.method === "OPTIONS") {
-        return handleOptions(request);
-      }
-      const validMethods = ["GET", "HEAD", "POST"];
-      if (validMethods.includes(request.method)) {
-        return handleRequest(request);
-      }
-      return new Response("Method Not Allowed", { status: 405 });
-    }
-    
-    return new Response("Not found", { status: 404 });
-  }
+async function rewritePlaygroundResponse(
+	request: Request,
+	response: Response,
+	proxiedPath: string,
+) {
+	const contentType = response.headers.get("Content-Type") ?? "";
+	if (
+		request.method !== "GET" ||
+		proxiedPath !== "" ||
+		!contentType.includes("text/html")
+	) {
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: response.headers,
+		});
+	}
+
+	const rewrittenBody = rewritePlaygroundHtml(await response.text());
+	const headers = new Headers(response.headers);
+	headers.delete("Content-Length");
+	return new Response(rewrittenBody, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
+}
+
+async function handleRequest(request: Request) {
+	const url = new URL(request.url);
+	const proxiedPath = url.pathname.replace(PROXY_ENDPOINT, "");
+	const upstreamUrl = new URL(proxiedPath, API_URL);
+	upstreamUrl.search = url.search;
+
+	const upstream = new Request(upstreamUrl, request);
+	upstream.headers.set("Origin", new URL(API_URL).origin);
+
+	const upstreamResponse = await fetch(upstream);
+	const response = await rewritePlaygroundResponse(
+		request,
+		upstreamResponse,
+		proxiedPath,
+	);
+	const headers = new Headers(response.headers);
+	addCorsHeaders(headers, request);
+
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
+}
+
+function handleOptions(request: Request) {
+	const headers = new Headers();
+	addCorsHeaders(headers, request);
+	headers.set("Access-Control-Max-Age", "86400");
+
+	return new Response(null, {
+		status: 204,
+		headers,
+	});
+}
+
+export { handleRequest, isAllowedOrigin, rewritePlaygroundHtml };
+
+export default {
+	async fetch(request: Request) {
+		const url = new URL(request.url);
+
+		if (url.pathname === "/" || url.pathname === "/index.html") {
+			return new Response(LANDING_PAGE, {
+				headers: { "Content-Type": "text/html;charset=UTF-8" },
+			});
+		}
+
+		if (url.pathname.startsWith(PROXY_ENDPOINT)) {
+			const origin = request.headers.get("Origin");
+
+			if (request.method !== "OPTIONS") {
+				if (request.method !== "GET" || origin) {
+					if (!isAllowedOrigin(origin, url)) {
+						return new Response(
+							"Forbidden: Access restricted to Tailscale network.",
+							{ status: 403 },
+						);
+					}
+				}
+			}
+
+			if (request.method === "OPTIONS") {
+				return handleOptions(request);
+			}
+
+			if (["GET", "HEAD", "POST"].includes(request.method)) {
+				return handleRequest(request);
+			}
+
+			return new Response("Method Not Allowed", { status: 405 });
+		}
+
+		return new Response("Not found", { status: 404 });
+	},
 };
-
-export {
-  index_default as default
-};
-//# sourceMappingURL=index.js.map
