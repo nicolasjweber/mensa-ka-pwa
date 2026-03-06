@@ -1,8 +1,10 @@
-const API_URL = "https://api.mensa-ka.de/";
-const PROXY_ENDPOINT = "/mensa-ka/";
+var __defProp = Object.defineProperty;
+var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// Simple HTML template for the demo page
-const LANDING_PAGE = `
+// src/index.ts
+var API_URL = "https://api.mensa-ka.de/";
+var PROXY_ENDPOINT = "/mensa-ka/";
+var LANDING_PAGE = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,7 +20,7 @@ const LANDING_PAGE = `
     </style>
 </head>
 <body>
-    <h1>🍴 mensa-ka api cors proxy</h1>
+    <h1>\u{1F374} mensa-ka api cors proxy</h1>
     <p>This is a lightweight proxy to bypass CORS restrictions for the <strong>mensa-ka.de</strong> API.</p>
     
     <div class="card">
@@ -32,22 +34,18 @@ const LANDING_PAGE = `
 
 async function handleRequest(request) {
   const url = new URL(request.url);
-  // Remove the proxy prefix to get the actual path for the upstream
   const path = url.pathname.replace(PROXY_ENDPOINT, "");
   const upstreamUrl = new URL(path, API_URL);
-
   const upstream = new Request(upstreamUrl, request);
   upstream.headers.set("Origin", new URL(API_URL).origin);
-
   let response = await fetch(upstream);
   response = new Response(response.body, response);
-
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Access-Control-Allow-Methods", "GET,HEAD,POST,OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-
   return response;
 }
+__name(handleRequest, "handleRequest");
 
 function handleOptions(request) {
   return new Response(null, {
@@ -55,39 +53,52 @@ function handleOptions(request) {
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-      "Access-Control-Allow-Headers":
-        request.headers.get("Access-Control-Request-Headers") ?? "Content-Type",
-      "Access-Control-Max-Age": "86400",
-    },
+      "Access-Control-Allow-Headers": request.headers.get("Access-Control-Request-Headers") ?? "Content-Type",
+      "Access-Control-Max-Age": "86400"
+    }
   });
 }
+__name(handleOptions, "handleOptions");
 
-export default {
+var index_default = {
   async fetch(request) {
     const url = new URL(request.url);
-
-    // 1. Serve the Demo Page at the root
+    
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return new Response(LANDING_PAGE, {
-        headers: { "Content-Type": "text/html;charset=UTF-8" },
+        headers: { "Content-Type": "text/html;charset=UTF-8" }
       });
     }
-
-    // 2. Handle Proxy Requests
+    
+    // Handle the Proxy Endpoint
+	// Restricted to the Tailscale Network
     if (url.pathname.startsWith(PROXY_ENDPOINT)) {
+      
+      const origin = request.headers.get("Origin");
+      
+      if (request.method !== "OPTIONS") {
+        if (request.method !== "GET" || origin) {
+          if (!origin || !origin.endsWith(".ts.net")) {
+            return new Response("Forbidden: Access restricted to Tailscale network.", { status: 403 });
+          }
+        }
+      }
+
       if (request.method === "OPTIONS") {
         return handleOptions(request);
       }
-
       const validMethods = ["GET", "HEAD", "POST"];
       if (validMethods.includes(request.method)) {
         return handleRequest(request);
       }
-
       return new Response("Method Not Allowed", { status: 405 });
     }
-
-    // 3. Fallback 404
+    
     return new Response("Not found", { status: 404 });
-  },
+  }
 };
+
+export {
+  index_default as default
+};
+//# sourceMappingURL=index.js.map
