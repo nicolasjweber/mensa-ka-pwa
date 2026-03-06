@@ -25,16 +25,16 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await handleRequest(
-			new Request("https://proxy.example/mensa-ka/"),
+			new Request("https://proxy.example/api/"),
 		);
 
-		expect(await response.text()).toContain(`endpoint: "/mensa-ka/"`);
+		expect(await response.text()).toContain(`endpoint: "/api/"`);
 		expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
 	});
 
 	it("blocks public playground access", async () => {
 		const response = await worker.fetch(
-			new Request("https://proxy.example/mensa-ka/"),
+			new Request("https://proxy.example/api/"),
 		);
 
 		expect(response.status).toBe(403);
@@ -54,7 +54,7 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await worker.fetch(
-			new Request("https://proxy.example/mensa-ka/", {
+			new Request("https://proxy.example/api/", {
 				headers: {
 					Referer: "https://admin.tail123.ts.net/tools",
 				},
@@ -62,7 +62,7 @@ describe("cors-header-proxy", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(await response.text()).toContain(`endpoint: "/mensa-ka/"`);
+		expect(await response.text()).toContain(`endpoint: "/api/"`);
 	});
 
 	it("allows same-origin POST requests", async () => {
@@ -76,7 +76,7 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await worker.fetch(
-			new Request("https://proxy.example/mensa-ka/", {
+			new Request("https://proxy.example/api/", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -92,7 +92,7 @@ describe("cors-header-proxy", () => {
 
 	it("rejects foreign POST origins", async () => {
 		const response = await worker.fetch(
-			new Request("https://proxy.example/mensa-ka/", {
+			new Request("https://proxy.example/api/", {
 				method: "POST",
 				headers: {
 					Origin: "https://evil.example",
@@ -117,7 +117,7 @@ describe("cors-header-proxy", () => {
 
 	it("rewrites only endpoint declarations", () => {
 		expect(rewritePlaygroundHtml(`{"endpoint":"/","other":"/"}`)).toBe(
-			`{"endpoint":"/mensa-ka/","other":"/"}`,
+			`{"endpoint":"/api/","other":"/"}`,
 		);
 	});
 });

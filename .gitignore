@@ -8,5 +8,5 @@ dist/
 .env.*
 !.env.example
 worker-configuration.d.ts
-pwa/TODO.md
-pwa/__pycache__/
+TODO.md
+web/__pycache__/

@@ -1,4 +1,4 @@
-const API_URL = "/mensa-ka/";
+const API_URL = "/api/";
 const CACHE_PREFIX = "mensa-ka-pwa-cache:";
 const FAVORITES_KEY = "mensa-ka-pwa-favorites";
 

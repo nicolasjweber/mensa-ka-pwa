@@ -21,7 +21,7 @@ Simple progressive web app proof-of-concept for browsing meal plans from the Men
 
 ## Run locally
 
-Serve the PWA through the Cloudflare worker so the app and `/mensa-ka/` API share one origin:
+Serve the PWA through the Cloudflare worker so the app and `/api/` share one origin:
 
 ```powershell
 cd cors-header-proxy
@@ -34,7 +34,7 @@ Then open:
 
 ## Deploy to Cloudflare
 
-The worker is configured to publish this folder as static assets and keep the GraphQL proxy on `/mensa-ka/`.
+The worker is configured to publish this folder as static assets and keep the GraphQL proxy on `/api/`.
 
 ```powershell
 cd cors-header-proxy

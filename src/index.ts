@@ -1,34 +1,6 @@
 const API_URL = "https://api.mensa-ka.de/";
-const PROXY_ENDPOINT = "/mensa-ka/";
+const PROXY_ENDPOINT = "/api/";
 const TAILSCALE_ORIGIN_SUFFIX = ".ts.net";
-
-const LANDING_PAGE = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mensa-KA API CORS Proxy</title>
-    <style>
-        body { font-family: -apple-system, system-ui, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; }
-        code { background: #f4f4f4; padding: 2px 5px; border-radius: 4px; font-family: monospace; }
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: #fafafa; }
-        h1 { color: #2c3e50; }
-        .endpoint { color: #0070f3; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>&#x1F374; mensa-ka api cors proxy</h1>
-    <p>This is a lightweight proxy to bypass CORS restrictions for the <strong>mensa-ka.de</strong> API.</p>
-
-    <div class="card">
-        <h3>Usage</h3>
-        <p>Prepend the proxy path to your API calls:</p>
-        <code>${PROXY_ENDPOINT}[original-endpoint]</code>
-    </div>
-</body>
-</html>
-`;
 
 function addCorsHeaders(headers: Headers, request: Request) {
 	headers.set("Access-Control-Allow-Origin", "*");
@@ -158,12 +130,6 @@ export { handleRequest, isAllowedOrigin, rewritePlaygroundHtml };
 export default {
 	async fetch(request: Request) {
 		const url = new URL(request.url);
-
-		if (url.pathname === "/" || url.pathname === "/index.html") {
-			return new Response(LANDING_PAGE, {
-				headers: { "Content-Type": "text/html;charset=UTF-8" },
-			});
-		}
 
 		if (url.pathname.startsWith(PROXY_ENDPOINT)) {
 			const origin = request.headers.get("Origin");
