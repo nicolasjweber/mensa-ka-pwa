@@ -34,7 +34,7 @@ describe("cors-header-proxy", () => {
 
 	it("blocks public playground access", async () => {
 		const response = await worker.fetch(
-			new Request("https://proxy.example/api/"),
+			new Request("http://localhost/api/"),
 		);
 
 		expect(response.status).toBe(403);
@@ -54,7 +54,7 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await worker.fetch(
-			new Request("https://proxy.example/api/", {
+			new Request("http://localhost/api/", {
 				headers: {
 					Referer: "https://admin.tail123.ts.net/tools",
 				},
@@ -76,11 +76,11 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await worker.fetch(
-			new Request("https://proxy.example/api/", {
+			new Request("http://localhost/api/", {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					Origin: "https://proxy.example",
+					Origin: "http://localhost",
 				},
 				body: JSON.stringify({ query: "{ __typename }" }),
 			}),
@@ -92,7 +92,7 @@ describe("cors-header-proxy", () => {
 
 	it("rejects foreign POST origins", async () => {
 		const response = await worker.fetch(
-			new Request("https://proxy.example/api/", {
+			new Request("http://localhost/api/", {
 				method: "POST",
 				headers: {
 					Origin: "https://evil.example",

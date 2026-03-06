@@ -1,0 +1,2 @@
+POLICY_AUD=your-access-policy-audience
+TEAM_DOMAIN=https://your-team.cloudflareaccess.com

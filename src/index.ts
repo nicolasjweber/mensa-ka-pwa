@@ -1,6 +1,77 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
 const API_URL = "https://api.mensa-ka.de/";
 const PROXY_ENDPOINT = "/api/";
 const TAILSCALE_ORIGIN_SUFFIX = ".ts.net";
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+interface Env {
+	POLICY_AUD: string;
+	TEAM_DOMAIN: string;
+}
+
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function normalizeTeamDomain(teamDomain: string) {
+	return teamDomain.replace(/\/+$/, "");
+}
+
+function getJwks(teamDomain: string) {
+	const cached = jwksCache.get(teamDomain);
+	if (cached) {
+		return cached;
+	}
+
+	const jwks = createRemoteJWKSet(
+		new URL(`${normalizeTeamDomain(teamDomain)}/cdn-cgi/access/certs`),
+	);
+	jwksCache.set(teamDomain, jwks);
+	return jwks;
+}
+
+function isLocalDevelopmentRequest(url: URL) {
+	return LOCAL_HOSTS.has(url.hostname);
+}
+
+async function requireCloudflareAccess(request: Request, env: Env) {
+	const url = new URL(request.url);
+	if (isLocalDevelopmentRequest(url)) {
+		return null;
+	}
+
+	if (!env.POLICY_AUD || !env.TEAM_DOMAIN) {
+		return new Response(
+			"Cloudflare Access is enabled but POLICY_AUD or TEAM_DOMAIN is missing.",
+			{
+				status: 500,
+				headers: { "Content-Type": "text/plain" },
+			},
+		);
+	}
+
+	const token = request.headers.get("cf-access-jwt-assertion");
+	if (!token) {
+		return new Response("Missing required CF Access JWT", {
+			status: 403,
+			headers: { "Content-Type": "text/plain" },
+		});
+	}
+
+	const teamDomain = normalizeTeamDomain(env.TEAM_DOMAIN);
+
+	try {
+		await jwtVerify(token, getJwks(teamDomain), {
+			issuer: teamDomain,
+			audience: env.POLICY_AUD,
+		});
+		return null;
+	} catch {
+		return new Response("Invalid Cloudflare Access token", {
+			status: 403,
+			headers: { "Content-Type": "text/plain" },
+		});
+	}
+}
 
 function addCorsHeaders(headers: Headers, request: Request) {
 	headers.set("Access-Control-Allow-Origin", "*");
@@ -128,8 +199,12 @@ function handleOptions(request: Request) {
 export { handleRequest, isAllowedOrigin, rewritePlaygroundHtml };
 
 export default {
-	async fetch(request: Request) {
+	async fetch(request: Request, env: Env) {
 		const url = new URL(request.url);
+		const accessResponse = await requireCloudflareAccess(request, env);
+		if (accessResponse) {
+			return accessResponse;
+		}
 
 		if (url.pathname.startsWith(PROXY_ENDPOINT)) {
 			const origin = request.headers.get("Origin");
