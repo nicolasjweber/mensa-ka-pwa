@@ -1,4 +1,4 @@
-const SHELL_CACHE = "mensa-ka-pwa-shell-v45";
+const SHELL_CACHE = "mensa-ka-pwa-shell-v46";
 const SHELL_ASSETS = [
   "./",
   "./index.html",
