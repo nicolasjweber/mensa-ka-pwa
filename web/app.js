@@ -53,6 +53,7 @@ const state = {
   selectedCanteenId: "",
   searchQuery: "",
   priceMode: "student",
+  controlsExpanded: false,
   favorites: loadFavorites(),
   mealImageGallery: new Map(),
 };
@@ -63,6 +64,9 @@ const modalState = {
   mealName: "",
 };
 
+const controlsSection = document.querySelector(".controls");
+const controlsToggleButton = document.getElementById("controlsToggleButton");
+const controlsExtraGroups = document.getElementById("controlsExtraGroups");
 const canteenSelect = document.getElementById("canteenSelect");
 const priceModeSelect = document.getElementById("priceModeSelect");
 const searchInput = document.getElementById("searchInput");
@@ -150,6 +154,18 @@ function renderDateDisplay() {
 
 function isMobileLayout() {
   return window.matchMedia(MOBILE_IMAGE_BREAKPOINT).matches;
+}
+
+function syncControlsVisibility() {
+  const mobile = isMobileLayout();
+  const expanded = !mobile || state.controlsExpanded;
+
+  controlsToggleButton.hidden = !mobile;
+  controlsToggleButton.textContent = expanded ? "Hide filters" : "Show filters";
+  controlsToggleButton.setAttribute("aria-expanded", String(expanded));
+  controlsExtraGroups.hidden = !expanded;
+
+  controlsSection.classList.toggle("mobile-collapsed", mobile && !expanded);
 }
 
 function setZoomAllowed(allowed) {
@@ -626,6 +642,14 @@ async function bootstrap() {
   setZoomAllowed(false);
   renderDateDisplay();
   let isCurrentlyMobile = isMobileLayout();
+  state.controlsExpanded = !isCurrentlyMobile;
+  syncControlsVisibility();
+
+  controlsToggleButton.addEventListener("click", () => {
+    if (!isMobileLayout()) return;
+    state.controlsExpanded = !state.controlsExpanded;
+    syncControlsVisibility();
+  });
 
   canteenSelect.addEventListener("change", () => {
     state.selectedCanteenId = canteenSelect.value;
@@ -718,6 +742,8 @@ async function bootstrap() {
     const nextMobileState = isMobileLayout();
     if (nextMobileState !== isCurrentlyMobile) {
       isCurrentlyMobile = nextMobileState;
+      state.controlsExpanded = !nextMobileState;
+      syncControlsVisibility();
       renderMealPlan();
     }
   });

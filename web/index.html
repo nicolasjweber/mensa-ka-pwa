@@ -30,24 +30,36 @@
           </div>
         </div>
 
-        <div class="group canteen-group">
-          <label for="canteenSelect">Canteen</label>
-          <select id="canteenSelect"></select>
-        </div>
+        <button
+          id="controlsToggleButton"
+          class="controls-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="controlsExtraGroups"
+        >
+          Show filters
+        </button>
 
-        <div class="group price-group">
-          <label for="priceModeSelect">Price mode</label>
-          <select id="priceModeSelect">
-            <option value="student" selected>Student</option>
-            <option value="employee">Employee</option>
-            <option value="pupil">Pupil</option>
-            <option value="guest">Guest</option>
-          </select>
-        </div>
+        <div id="controlsExtraGroups" class="controls-extra">
+          <div class="group canteen-group">
+            <label for="canteenSelect">Canteen</label>
+            <select id="canteenSelect"></select>
+          </div>
 
-        <div class="group search-group">
-          <label for="searchInput">Search meals</label>
-          <input id="searchInput" type="search" placeholder="e.g. curry, pasta, vegan" />
+          <div class="group price-group">
+            <label for="priceModeSelect">Price mode</label>
+            <select id="priceModeSelect">
+              <option value="student" selected>Student</option>
+              <option value="employee">Employee</option>
+              <option value="pupil">Pupil</option>
+              <option value="guest">Guest</option>
+            </select>
+          </div>
+
+          <div class="group search-group">
+            <label for="searchInput">Search meals</label>
+            <input id="searchInput" type="search" placeholder="e.g. curry, pasta, vegan" />
+          </div>
         </div>
       </section>
 

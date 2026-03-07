@@ -114,6 +114,28 @@ button:disabled {
   gap: 0.72rem;
 }
 
+.controls-extra {
+  display: contents;
+}
+
+.controls-extra[hidden],
+.controls-toggle[hidden] {
+  display: none !important;
+}
+
+.controls-toggle {
+  display: none;
+  background: var(--surface);
+  color: var(--kit-green-deep);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.controls-toggle:hover {
+  box-shadow: 0 6px 14px rgba(0, 111, 97, 0.15);
+  background: #f3fcfa;
+}
+
 .group label {
   display: block;
   margin: 0 0 0.35rem;
@@ -456,6 +478,28 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .controls-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    order: 2;
+  }
+
+  .controls-extra {
+    display: grid;
+    gap: 0.72rem;
+    order: 3;
+  }
+
+  .controls.mobile-collapsed {
+    gap: 0;
+  }
+
+  .controls.mobile-collapsed .date-nav {
+    margin-bottom: 0.72rem;
+  }
+
   .date-row {
     width: 100%;
     grid-template-columns: 1fr 1fr auto;
@@ -475,7 +519,7 @@ button:disabled {
   }
 
   .date-nav {
-    order: 4;
+    order: 1;
   }
 
   .header {

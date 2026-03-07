@@ -31,7 +31,6 @@ Configure these variables for deployment:
 ## Local development
 
 ```powershell
-cd cors-header-proxy
 npx wrangler dev
 ```
 
