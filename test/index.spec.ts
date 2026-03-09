@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import worker, {
-	handleRequest,
-	isAllowedOrigin,
-	rewritePlaygroundHtml,
-} from "../src/index";
+import worker, { handleRequest, rewritePlaygroundHtml } from "../src/index";
 
 describe("cors-header-proxy", () => {
 	afterEach(() => {
@@ -32,15 +28,7 @@ describe("cors-header-proxy", () => {
 		expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
 	});
 
-	it("blocks public playground access", async () => {
-		const response = await worker.fetch(
-			new Request("http://localhost/api/"),
-		);
-
-		expect(response.status).toBe(403);
-	});
-
-	it("allows playground access from tailscale referers", async () => {
+	it("allows playground access without extra origin checks", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockResolvedValue(
@@ -54,11 +42,7 @@ describe("cors-header-proxy", () => {
 		);
 
 		const response = await worker.fetch(
-			new Request("http://localhost/api/", {
-				headers: {
-					Referer: "https://admin.tail123.ts.net/tools",
-				},
-			}),
+			new Request("http://localhost/api/"),
 		);
 
 		expect(response.status).toBe(200);
@@ -90,29 +74,28 @@ describe("cors-header-proxy", () => {
 		expect(await response.json()).toEqual({ data: { ok: true } });
 	});
 
-	it("rejects foreign POST origins", async () => {
+	it("allows foreign POST origins when Access already allowed the request", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				new Response(JSON.stringify({ data: { ok: true } }), {
+					headers: { "Content-Type": "application/json" },
+				}),
+			),
+		);
+
 		const response = await worker.fetch(
 			new Request("http://localhost/api/", {
 				method: "POST",
 				headers: {
 					Origin: "https://evil.example",
 				},
+				body: JSON.stringify({ query: "{ __typename }" }),
 			}),
 		);
 
-		expect(response.status).toBe(403);
-	});
-
-	it("accepts tailscale origins", () => {
-		expect(
-			isAllowedOrigin("https://client.tail123.ts.net", new URL("https://proxy.example")),
-		).toBe(true);
-		expect(
-			isAllowedOrigin("https://proxy.example", new URL("https://proxy.example")),
-		).toBe(true);
-		expect(
-			isAllowedOrigin("https://evil.example", new URL("https://proxy.example")),
-		).toBe(false);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ data: { ok: true } });
 	});
 
 	it("rewrites only endpoint declarations", () => {

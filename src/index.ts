@@ -2,7 +2,6 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const API_URL = "https://api.mensa-ka.de/";
 const PROXY_ENDPOINT = "/api/";
-const TAILSCALE_ORIGIN_SUFFIX = ".ts.net";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
 interface Env {
@@ -82,49 +81,6 @@ function addCorsHeaders(headers: Headers, request: Request) {
 	);
 }
 
-function getSourceUrl(request: Request) {
-	const origin = request.headers.get("Origin");
-	if (origin) {
-		try {
-			return new URL(origin);
-		} catch {
-			return null;
-		}
-	}
-
-	const referer = request.headers.get("Referer");
-	if (referer) {
-		try {
-			return new URL(referer);
-		} catch {
-			return null;
-		}
-	}
-
-	return null;
-}
-
-function isAllowedOrigin(origin: string | null, requestUrl: URL) {
-	if (!origin) {
-		return false;
-	}
-
-	try {
-		const originUrl = new URL(origin);
-		return (
-			originUrl.origin === requestUrl.origin ||
-			originUrl.hostname.endsWith(TAILSCALE_ORIGIN_SUFFIX)
-		);
-	} catch {
-		return false;
-	}
-}
-
-function isPlaygroundRequestAllowed(request: Request) {
-	const sourceUrl = getSourceUrl(request);
-	return sourceUrl?.hostname.endsWith(TAILSCALE_ORIGIN_SUFFIX) ?? false;
-}
-
 function rewritePlaygroundHtml(body: string) {
 	return body.replace(
 		/(["']?endpoint["']?\s*:\s*["'])\/(["'])/g,
@@ -196,41 +152,17 @@ function handleOptions(request: Request) {
 	});
 }
 
-export { handleRequest, isAllowedOrigin, rewritePlaygroundHtml };
+export { handleRequest, rewritePlaygroundHtml };
 
 export default {
 	async fetch(request: Request, env: Env) {
-		const url = new URL(request.url);
 		const accessResponse = await requireCloudflareAccess(request, env);
 		if (accessResponse) {
 			return accessResponse;
 		}
 
+		const url = new URL(request.url);
 		if (url.pathname.startsWith(PROXY_ENDPOINT)) {
-			const origin = request.headers.get("Origin");
-			const proxiedPath = url.pathname.replace(PROXY_ENDPOINT, "");
-
-			if (
-				request.method === "GET" &&
-				proxiedPath === "" &&
-				!isPlaygroundRequestAllowed(request)
-			) {
-				return new Response("Forbidden: Playground access requires Tailscale.", {
-					status: 403,
-				});
-			}
-
-			if (request.method !== "OPTIONS") {
-				if (request.method !== "GET" || origin) {
-					if (!isAllowedOrigin(origin, url)) {
-						return new Response(
-							"Forbidden: Access restricted to Tailscale network.",
-							{ status: 403 },
-						);
-					}
-				}
-			}
-
 			if (request.method === "OPTIONS") {
 				return handleOptions(request);
 			}
