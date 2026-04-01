@@ -12,8 +12,8 @@
 		"run_worker_first": ["/api", "/api/*"]
 	},
 	"vars": {
-		"POLICY_AUD": "<your-cloudflare-access-aud-tag>",
-		"TEAM_DOMAIN": "https://<your-team>.cloudflareaccess.com"
+		"POLICY_AUD": "834dfd7791aaaa9a5950fe38ac590b743e7c4264b795c74c6eaf3e45c352444a",
+		"TEAM_DOMAIN": "https://nicolasjweber.cloudflareaccess.com"
 	},
 	"observability": {
 		"enabled": true
