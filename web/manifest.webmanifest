@@ -1,13 +1,40 @@
 {
-  "name": "MensaKA PWA",
-  "short_name": "MensaKA PWA",
-  "description": "Progressive web app for KIT university canteen meal plans.",
+  "id": "/",
+  "name": "Mensa Karlsruhe",
+  "short_name": "Mensa KA",
+  "description": "Progressive Web App for KIT canteen meal plans and prices.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "window-controls-overlay"
+  ],
   "orientation": "portrait-primary",
   "background_color": "#f3fdfb",
   "theme_color": "#009682",
+  "categories": [
+    "food",
+    "education",
+    "lifestyle"
+  ],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Today's Menu",
+      "short_name": "Today",
+      "description": "View today's canteen meals",
+      "url": "./",
+      "icons": [
+        {
+          "src": "assets/icons/manifest-icon-192.maskable.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "assets/icons/manifest-icon-192.maskable.png",
@@ -36,7 +63,8 @@
     {
       "src": "./assets/icons/icon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

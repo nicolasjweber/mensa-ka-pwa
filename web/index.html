@@ -3,13 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#009682">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#009682">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1916">
     <title>Mensa Karlsruhe</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="./assets/icons/icon.svg">
     <link rel="stylesheet" href="./styles.css">
     <link rel="apple-touch-icon" href="assets/icons/apple-icon-180.png">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="apple-touch-startup-image" href="assets/icons/apple-splash-2048-2732.jpg" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
     <link rel="apple-touch-startup-image" href="assets/icons/apple-splash-2732-2048.jpg" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)">
     <link rel="apple-touch-startup-image" href="assets/icons/apple-splash-1668-2388.jpg" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
@@ -57,45 +61,84 @@
         <h1>Mensa Karlsruhe</h1>
         <p class="subtitle">Implements api.mensa-ka.de as a Progressive Web App</p>
       </div>
-      <button id="installButton" class="install-button" hidden="">Install</button>
+      <div class="header-actions">
+        <button id="refreshButton" class="header-btn" type="button" aria-label="Refresh meal plan from server" title="Refresh">
+          <span id="refreshIcon" class="refresh-icon" aria-hidden="true">&#x21bb;</span>
+          <span class="btn-text">Refresh</span>
+        </button>
+        <button id="installButton" class="install-button" hidden="">Install App</button>
+      </div>
     </header>
     <main class="main">
-      <section class="controls">
-        <div class="group date-nav">
-          <label>Date</label>
-          <div class="date-row">
-            <button id="prevDayButton" type="button" aria-label="Previous day">Prev</button>
-            <button id="nextDayButton" type="button" aria-label="Next day">Next</button>
-            <button id="refreshButton" type="button" aria-label="Refresh current day">Refresh</button>
+      <section class="controls-card">
+        <div class="selectors-row">
+          <div class="control-field canteen-field">
+            <label for="canteenSelect">Canteen</label>
+            <div class="select-wrapper">
+              <select id="canteenSelect"></select>
+            </div>
+          </div>
+          <div class="control-field price-field">
+            <label for="priceModeSelect">Price category</label>
+            <div class="select-wrapper">
+              <select id="priceModeSelect">
+                <option value="student" selected="">Student</option>
+                <option value="employee">Employee</option>
+                <option value="pupil">Pupil</option>
+                <option value="guest">Guest</option>
+              </select>
+            </div>
+          </div>
+          <div class="control-field filters-field">
+            <label>Filters</label>
+            <div class="filter-chips" role="group" aria-label="Dietary and preference filters">
+              <button id="chipVegan" class="filter-chip" type="button" data-filter="vegan" aria-pressed="false">🌱 Vegan</button>
+              <button id="chipVegetarian" class="filter-chip" type="button" data-filter="vegetarian" aria-pressed="false">🧀 Vegetarian</button>
+              <button id="chipNoPork" class="filter-chip" type="button" data-filter="noPork" aria-pressed="false">🚫 No Pork</button>
+              <button id="chipFavorites" class="filter-chip" type="button" data-filter="favoritesOnly" aria-pressed="false">❤️ Favorites</button>
+              <span id="summaryMessage" class="summary-badge" aria-live="polite"></span>
+            </div>
           </div>
         </div>
-        <button id="controlsToggleButton" class="controls-toggle" type="button" aria-expanded="false" aria-controls="controlsExtraGroups">
-          Show filters
-        </button>
-        <div id="controlsExtraGroups" class="controls-extra">
-          <div class="group canteen-group">
-            <label for="canteenSelect">Canteen</label>
-            <select id="canteenSelect"></select>
+
+        <div class="week-strip-container">
+          <div class="week-strip-header">
+            <div class="week-strip-header-left">
+              <button id="calendarToggleBtn" class="calendar-toggle-btn" type="button" aria-expanded="false" title="Toggle month calendar view" aria-label="Toggle month calendar view">
+                <span class="cal-icon" aria-hidden="true">&#x1F4C5;</span>
+                <span id="calendarToggleText" class="cal-toggle-text">Month</span>
+              </button>
+            </div>
+            <div class="week-strip-nav">
+              <button id="prevDayButton" class="nav-arrow-btn" type="button" aria-label="Previous day (A or Left Arrow)">&#10094;</button>
+              <span id="dateDisplay" class="week-title" aria-live="polite"></span>
+              <button id="nextDayButton" class="nav-arrow-btn" type="button" aria-label="Next day (D or Right Arrow)">&#10095;</button>
+            </div>
+            <div class="week-strip-header-right">
+              <button id="todayButton" class="today-pill-btn" type="button">Today</button>
+            </div>
           </div>
-          <div class="group price-group">
-            <label for="priceModeSelect">Price mode</label>
-            <select id="priceModeSelect">
-              <option value="student" selected="">Student</option>
-              <option value="employee">Employee</option>
-              <option value="pupil">Pupil</option>
-              <option value="guest">Guest</option>
-            </select>
+          <div id="weekDaysStrip" class="week-days-strip" role="tablist" aria-label="Select day of the week">
+            <!-- Day tabs (Mon-Fri) rendered by JavaScript -->
           </div>
-          <div class="group search-group">
-            <label for="searchInput">Search meals</label>
-            <input id="searchInput" type="search" placeholder="e.g. curry, pasta, vegan">
+
+          <div id="monthCalendar" class="month-calendar" hidden="">
+            <div class="month-header-bar">
+              <button id="monthPrevBtn" class="nav-arrow-btn" type="button" aria-label="Previous month">&#10094;</button>
+              <span id="monthLabel" class="month-title" aria-live="polite"></span>
+              <button id="monthNextBtn" class="nav-arrow-btn" type="button" aria-label="Next month">&#10095;</button>
+            </div>
+            <div class="month-weekdays-header" aria-hidden="true">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+            <div id="monthDaysGrid" class="month-days-grid" role="grid" aria-label="Month calendar days">
+              <!-- Rendered by JavaScript -->
+            </div>
           </div>
         </div>
       </section>
       <section class="meta">
-        <p id="dateDisplay" class="date-display" aria-live="polite"></p>
         <p id="statusMessage" class="status" role="status" aria-live="polite"></p>
-        <p id="summaryMessage" class="summary" aria-live="polite"></p>
       </section>
       <section id="mealPlanContainer" class="meal-plan" aria-live="polite"></section>
     </main>
@@ -104,18 +147,26 @@
         View on GitHub
       </a>
     </footer>
-    <div id="imageModal" class="image-modal" hidden="">
-      <div class="image-modal-toolbar">
-        <p id="imageModalCaption" class="image-modal-caption"></p>
-        <p id="imageModalCounter" class="image-modal-counter"></p>
-        <button id="imageModalClose" class="image-modal-close" type="button" aria-label="Close image">Close</button>
+    <dialog id="imageModal" class="lightbox-dialog" aria-label="Meal photo viewer">
+      <div class="lb-header">
+        <div class="lb-title-wrap">
+          <span id="imageModalCaption" class="lb-title"></span>
+          <span id="imageModalCounter" class="lb-counter"></span>
+        </div>
+        <button id="imageModalClose" class="lb-btn lb-close" type="button" aria-label="Close photo viewer">&times;</button>
       </div>
-      <div class="image-modal-stage">
-        <button id="imageModalPrev" class="image-modal-nav" type="button" aria-label="Previous image">Prev</button>
-        <img id="imageModalContent" class="image-modal-content" alt="Meal image">
-        <button id="imageModalNext" class="image-modal-nav" type="button" aria-label="Next image">Next</button>
+      <div class="lb-body">
+        <button id="imageModalPrev" class="lb-nav-btn lb-prev" type="button" aria-label="Previous photo">&#10094;</button>
+        <div id="imageModalViewport" class="lb-img-container">
+          <div id="imageModalSpinner" class="lb-spinner" aria-hidden="true"></div>
+          <img id="imageModalContent" class="lb-img" alt="Meal photo" draggable="false">
+        </div>
+        <button id="imageModalNext" class="lb-nav-btn lb-next" type="button" aria-label="Next photo">&#10095;</button>
       </div>
-    </div>
+      <div class="lb-footer">
+        <div id="imageModalDots" class="lb-dots" role="tablist" aria-label="Photo pagination"></div>
+      </div>
+    </dialog>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

@@ -51,29 +51,43 @@ const state = {
   date: toDateString(new Date()),
   canteens: [],
   selectedCanteenId: "",
-  searchQuery: "",
   priceMode: "student",
-  controlsExpanded: false,
   favorites: loadFavorites(),
   mealImageGallery: new Map(),
+  activeFilters: {
+    vegan: false,
+    vegetarian: false,
+    noPork: false,
+    favoritesOnly: false,
+  },
+  isLoading: false,
 };
 
 const modalState = {
   urls: [],
   index: 0,
   mealName: "",
+  isZoomed: false,
+  scale: 1,
+  translateX: 0,
+  translateY: 0,
 };
 
-const controlsSection = document.querySelector(".controls");
-const controlsToggleButton = document.getElementById("controlsToggleButton");
-const controlsExtraGroups = document.getElementById("controlsExtraGroups");
 const canteenSelect = document.getElementById("canteenSelect");
 const priceModeSelect = document.getElementById("priceModeSelect");
-const searchInput = document.getElementById("searchInput");
 const prevDayButton = document.getElementById("prevDayButton");
 const refreshButton = document.getElementById("refreshButton");
 const nextDayButton = document.getElementById("nextDayButton");
+const todayButton = document.getElementById("todayButton");
+const calendarToggleBtn = document.getElementById("calendarToggleBtn");
+const calendarToggleText = document.getElementById("calendarToggleText");
 const dateDisplay = document.getElementById("dateDisplay");
+const weekDaysStrip = document.getElementById("weekDaysStrip");
+const monthCalendar = document.getElementById("monthCalendar");
+const monthPrevBtn = document.getElementById("monthPrevBtn");
+const monthNextBtn = document.getElementById("monthNextBtn");
+const monthLabel = document.getElementById("monthLabel");
+const monthDaysGrid = document.getElementById("monthDaysGrid");
 const statusMessage = document.getElementById("statusMessage");
 const summaryMessage = document.getElementById("summaryMessage");
 const mealPlanContainer = document.getElementById("mealPlanContainer");
@@ -85,12 +99,22 @@ const imageModalNext = document.getElementById("imageModalNext");
 const imageModalContent = document.getElementById("imageModalContent");
 const imageModalCaption = document.getElementById("imageModalCaption");
 const imageModalCounter = document.getElementById("imageModalCounter");
-const viewportMeta = document.querySelector('meta[name="viewport"]');
+const imageModalViewport = document.getElementById("imageModalViewport");
+const imageModalDots = document.getElementById("imageModalDots");
+const filterChips = document.querySelectorAll(".filter-chip");
 
-const VIEWPORT_NO_ZOOM =
-  "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
-const VIEWPORT_ALLOW_ZOOM = "width=device-width, initial-scale=1";
-const MOBILE_IMAGE_BREAKPOINT = "(max-width: 560px)";
+const SHORT_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
+const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  month: "long",
+  year: "numeric",
+});
+
+const calendarState = {
+  isExpanded: false,
+  viewYear: new Date().getFullYear(),
+  viewMonth: new Date().getMonth(),
+};
 
 function loadFavorites() {
   const raw = localStorage.getItem(FAVORITES_KEY);
@@ -128,49 +152,250 @@ function normalizeToLocalMidnight(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function relativeDateLabel(date) {
-  const target = normalizeToLocalMidnight(date);
-  const today = normalizeToLocalMidnight(new Date());
-  const diffDays = Math.round((target - today) / 86400000);
+const SHORT_GERMAN_WEEKDAY_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  weekday: "short",
+});
 
-  if (diffDays === 0) return "Today";
-  if (diffDays === -1) return "Yesterday";
-  if (diffDays === 1) return "Tomorrow";
-  return "";
+function formatDateDisplay(value) {
+  const date = parseDateInput(value);
+  const formatter = isMobileLayout() ? SHORT_GERMAN_WEEKDAY_FORMATTER : GERMAN_WEEKDAY_FORMATTER;
+  const weekday = formatter.format(date);
+  const formatted = GERMAN_DATE_FORMATTER.format(date);
+  return `${weekday}, ${formatted}`;
 }
 
-function formatGermanDateWithRelative(value) {
-  const date = parseDateInput(value);
-  const weekday = GERMAN_WEEKDAY_FORMATTER.format(date);
-  const formatted = GERMAN_DATE_FORMATTER.format(date);
-  const relative = relativeDateLabel(date);
-  const dateWithWeekday = `${weekday}, ${formatted}`;
-  return relative ? `${dateWithWeekday} (${relative})` : dateWithWeekday;
+function getMondayOfDate(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+const MOBILE_BREAKPOINT = "(max-width: 600px)";
+
+function isMobileLayout() {
+  return window.matchMedia(MOBILE_BREAKPOINT).matches;
 }
 
 function renderDateDisplay() {
-  dateDisplay.textContent = `Date: ${formatGermanDateWithRelative(state.date)}`;
+  if (dateDisplay) {
+    dateDisplay.textContent = formatDateDisplay(state.date);
+  }
 }
 
-function isMobileLayout() {
-  return window.matchMedia(MOBILE_IMAGE_BREAKPOINT).matches;
+function renderWeekStrip() {
+  if (!weekDaysStrip) return;
+  weekDaysStrip.innerHTML = "";
+
+  const currentDate = parseDateInput(state.date);
+  const monday = getMondayOfDate(currentDate);
+  const todayStr = toDateString(new Date());
+
+  for (let i = 0; i < 5; i++) {
+    const dayDate = new Date(monday);
+    dayDate.setDate(monday.getDate() + i);
+    const dayStr = toDateString(dayDate);
+    const isSelected = dayStr === state.date;
+    const isToday = dayStr === todayStr;
+
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = `day-tab ${isSelected ? "active" : ""}`.trim();
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(isSelected));
+    tab.setAttribute("aria-label", `${SHORT_WEEKDAYS[i]}, ${dayDate.getDate()}`);
+
+    tab.innerHTML = `
+      <span class="day-name">${SHORT_WEEKDAYS[i]}</span>
+      <span class="day-num">${dayDate.getDate()}</span>
+      ${isToday ? '<span class="today-dot" title="Today"></span>' : ""}
+    `;
+
+    tab.addEventListener("click", () => {
+      if (state.date !== dayStr) {
+        state.date = dayStr;
+        renderDateDisplay();
+        renderWeekStrip();
+        if (calendarState.isExpanded) {
+          renderMonthCalendar();
+        }
+        void loadMealPlan();
+      }
+    });
+
+    weekDaysStrip.appendChild(tab);
+  }
+
+  if (todayButton) {
+    todayButton.hidden = state.date === todayStr;
+  }
 }
 
-function syncControlsVisibility() {
-  const mobile = isMobileLayout();
-  const expanded = !mobile || state.controlsExpanded;
+function renderMonthCalendar() {
+  if (!monthCalendar || !monthDaysGrid || !monthLabel) return;
 
-  controlsToggleButton.hidden = !mobile;
-  controlsToggleButton.textContent = expanded ? "Hide filters" : "Show filters";
-  controlsToggleButton.setAttribute("aria-expanded", String(expanded));
-  controlsExtraGroups.hidden = !expanded;
+  const viewDate = new Date(calendarState.viewYear, calendarState.viewMonth, 1);
+  monthLabel.textContent = MONTH_YEAR_FORMATTER.format(viewDate);
 
-  controlsSection.classList.toggle("mobile-collapsed", mobile && !expanded);
+  monthDaysGrid.innerHTML = "";
+
+  const firstDayOfWeek = (viewDate.getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const daysInMonth = new Date(calendarState.viewYear, calendarState.viewMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(calendarState.viewYear, calendarState.viewMonth, 0).getDate();
+
+  const todayStr = toDateString(new Date());
+
+  // Previous month padding days
+  for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+    const prevDate = new Date(calendarState.viewYear, calendarState.viewMonth - 1, daysInPrevMonth - i);
+    const dayStr = toDateString(prevDate);
+    const isWeekendDay = prevDate.getDay() === 0 || prevDate.getDay() === 6;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cal-day other-month ${isWeekendDay ? "weekend" : ""}`.trim();
+    btn.textContent = String(prevDate.getDate());
+    if (isWeekendDay) {
+      btn.disabled = true;
+      btn.title = "Closed on weekends";
+    } else {
+      btn.addEventListener("click", () => selectCalendarDate(dayStr));
+    }
+    monthDaysGrid.appendChild(btn);
+  }
+
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const curDate = new Date(calendarState.viewYear, calendarState.viewMonth, day);
+    const dayStr = toDateString(curDate);
+    const isSelected = dayStr === state.date;
+    const isToday = dayStr === todayStr;
+    const isWeekendDay = curDate.getDay() === 0 || curDate.getDay() === 6;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cal-day ${isSelected ? "active" : ""} ${isToday ? "today" : ""} ${isWeekendDay ? "weekend" : ""}`.trim();
+    btn.setAttribute("role", "gridcell");
+    btn.setAttribute("aria-selected", String(isSelected));
+    btn.innerHTML = `${day}${isToday ? '<span class="cal-dot"></span>' : ""}`;
+
+    if (isWeekendDay) {
+      btn.disabled = true;
+      btn.title = "Closed on weekends";
+    } else {
+      btn.addEventListener("click", () => selectCalendarDate(dayStr));
+    }
+    monthDaysGrid.appendChild(btn);
+  }
+
+  // Next month padding days to complete 7-day row
+  const totalRendered = firstDayOfWeek + daysInMonth;
+  const remainingDays = (7 - (totalRendered % 7)) % 7;
+  for (let day = 1; day <= remainingDays; day++) {
+    const nextDate = new Date(calendarState.viewYear, calendarState.viewMonth + 1, day);
+    const dayStr = toDateString(nextDate);
+    const isWeekendDay = nextDate.getDay() === 0 || nextDate.getDay() === 6;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cal-day other-month ${isWeekendDay ? "weekend" : ""}`.trim();
+    btn.textContent = String(day);
+    if (isWeekendDay) {
+      btn.disabled = true;
+      btn.title = "Closed on weekends";
+    } else {
+      btn.addEventListener("click", () => selectCalendarDate(dayStr));
+    }
+    monthDaysGrid.appendChild(btn);
+  }
 }
 
-function setZoomAllowed(allowed) {
-  if (!viewportMeta) return;
-  viewportMeta.setAttribute("content", allowed ? VIEWPORT_ALLOW_ZOOM : VIEWPORT_NO_ZOOM);
+function selectCalendarDate(dayStr) {
+  state.date = dayStr;
+  renderDateDisplay();
+  renderWeekStrip();
+  toggleMonthCalendar(false);
+  void loadMealPlan();
+}
+
+function toggleMonthCalendar(forceOpen) {
+  const nextExpanded = typeof forceOpen === "boolean" ? forceOpen : !calendarState.isExpanded;
+  calendarState.isExpanded = nextExpanded;
+
+  if (nextExpanded) {
+    const selectedDate = parseDateInput(state.date);
+    calendarState.viewYear = selectedDate.getFullYear();
+    calendarState.viewMonth = selectedDate.getMonth();
+    renderMonthCalendar();
+  }
+
+  if (monthCalendar) {
+    monthCalendar.hidden = !nextExpanded;
+  }
+  if (calendarToggleBtn) {
+    calendarToggleBtn.setAttribute("aria-expanded", String(nextExpanded));
+  }
+  if (calendarToggleText) {
+    calendarToggleText.textContent = nextExpanded ? "Close" : "Month";
+  }
+}
+
+function shiftCalendarMonth(offset) {
+  const d = new Date(calendarState.viewYear, calendarState.viewMonth + offset, 1);
+  calendarState.viewYear = d.getFullYear();
+  calendarState.viewMonth = d.getMonth();
+  renderMonthCalendar();
+}
+
+function resetModalZoom() {
+  modalState.isZoomed = false;
+  modalState.scale = 1;
+  modalState.translateX = 0;
+  modalState.translateY = 0;
+  imageModalContent.classList.remove("zoomed", "dragging");
+  imageModalContent.style.transform = "";
+  imageModal.style.backgroundColor = "";
+}
+
+function preloadAdjacentImages() {
+  const { urls, index } = modalState;
+  if (urls.length <= 1) return;
+  const nextIdx = (index + 1) % urls.length;
+  const prevIdx = (index - 1 + urls.length) % urls.length;
+  if (urls[nextIdx]) {
+    const imgNext = new Image();
+    imgNext.src = urls[nextIdx];
+  }
+  if (urls[prevIdx]) {
+    const imgPrev = new Image();
+    imgPrev.src = urls[prevIdx];
+  }
+}
+
+function renderModalDots() {
+  if (!imageModalDots) return;
+  imageModalDots.innerHTML = "";
+  const total = modalState.urls.length;
+  if (total <= 1) {
+    imageModalDots.hidden = true;
+    return;
+  }
+  imageModalDots.hidden = false;
+
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = `lb-dot ${i === modalState.index ? "active" : ""}`.trim();
+    dot.setAttribute("aria-label", `Photo ${i + 1} of ${total}`);
+    dot.setAttribute("role", "tab");
+    dot.setAttribute("aria-selected", String(i === modalState.index));
+    dot.addEventListener("click", (e) => {
+      e.stopPropagation();
+      goToModalImage(i);
+    });
+    imageModalDots.appendChild(dot);
+  }
 }
 
 function renderModalImage() {
@@ -179,18 +404,62 @@ function renderModalImage() {
   const index = Math.min(Math.max(modalState.index, 0), modalState.urls.length - 1);
   modalState.index = index;
 
+  resetModalZoom();
+
   const imageUrl = modalState.urls[index];
   const total = modalState.urls.length;
-  const mealName = modalState.mealName || "Meal image";
+  const mealName = modalState.mealName || "Meal photo";
+
+  if (imageModalViewport) {
+    imageModalViewport.classList.add("loading");
+  }
 
   imageModalContent.src = imageUrl;
   imageModalContent.alt = `${mealName} (${index + 1}/${total})`;
   imageModalCaption.textContent = mealName;
   imageModalCounter.textContent = `${index + 1} / ${total}`;
 
+  imageModalContent.onload = () => {
+    if (imageModalViewport) {
+      imageModalViewport.classList.remove("loading");
+    }
+  };
+
   const singleImage = total <= 1;
   imageModalPrev.hidden = singleImage;
   imageModalNext.hidden = singleImage;
+  imageModalCounter.hidden = singleImage;
+
+  renderModalDots();
+  preloadAdjacentImages();
+}
+
+function goToModalImage(newIndex) {
+  if (modalState.urls.length === 0) return;
+  const total = modalState.urls.length;
+  modalState.index = (newIndex + total) % total;
+  renderModalImage();
+}
+
+function showPreviousModalImage() {
+  if (modalState.urls.length <= 1) return;
+  goToModalImage(modalState.index - 1);
+}
+
+function showNextModalImage() {
+  if (modalState.urls.length <= 1) return;
+  goToModalImage(modalState.index + 1);
+}
+
+function toggleModalZoom() {
+  if (modalState.isZoomed) {
+    resetModalZoom();
+  } else {
+    modalState.isZoomed = true;
+    modalState.scale = 2;
+    imageModalContent.classList.add("zoomed");
+    imageModalContent.style.transform = `scale(${modalState.scale})`;
+  }
 }
 
 function openImageModal(urls, startIndex, mealName) {
@@ -201,32 +470,30 @@ function openImageModal(urls, startIndex, mealName) {
   modalState.mealName = String(mealName ?? "");
 
   renderModalImage();
-  imageModal.hidden = false;
+  if (typeof imageModal.showModal === "function") {
+    if (!imageModal.open) {
+      imageModal.showModal();
+    }
+  } else {
+    imageModal.setAttribute("open", "");
+  }
   document.body.style.overflow = "hidden";
-  setZoomAllowed(true);
 }
 
 function closeImageModal() {
-  imageModal.hidden = true;
+  if (typeof imageModal.close === "function") {
+    if (imageModal.open) {
+      imageModal.close();
+    }
+  } else {
+    imageModal.removeAttribute("open");
+  }
   imageModalContent.src = "";
   modalState.urls = [];
   modalState.index = 0;
   modalState.mealName = "";
+  resetModalZoom();
   document.body.style.overflow = "";
-  setZoomAllowed(false);
-}
-
-function showPreviousModalImage() {
-  if (modalState.urls.length <= 1) return;
-  modalState.index =
-    (modalState.index - 1 + modalState.urls.length) % modalState.urls.length;
-  renderModalImage();
-}
-
-function showNextModalImage() {
-  if (modalState.urls.length <= 1) return;
-  modalState.index = (modalState.index + 1) % modalState.urls.length;
-  renderModalImage();
 }
 
 function isTextInputFocused() {
@@ -347,7 +614,7 @@ function renderRating(ratings) {
   const stars = "\u2605".repeat(fullStars) + "\u2606".repeat(5 - fullStars);
 
   return `
-    <span class="rating-stars" aria-label="${clampedAverage.toFixed(1)} of 5 stars">${stars}</span>
+    <span class="rating-stars" role="img" aria-label="${clampedAverage.toFixed(1)} of 5 stars">${stars}</span>
     <span class="rating-number">${clampedAverage.toFixed(1)}/5 (${count})</span>
   `;
 }
@@ -379,12 +646,29 @@ function renderCanteenOptions() {
 }
 
 function filterMeals(meals) {
-  const normalizedQuery = state.searchQuery.trim().toLowerCase();
+  const { vegan, vegetarian, noPork, favoritesOnly } = state.activeFilters;
+
   return meals.filter((meal) => {
-    if (!normalizedQuery) {
-      return true;
+    const mealId = String(meal.id ?? "");
+    const mealType = meal.mealType;
+
+    // Favorites only filter
+    if (favoritesOnly && !state.favorites.has(mealId)) {
+      return false;
     }
-    return String(meal.name ?? "").toLowerCase().includes(normalizedQuery);
+
+    // Dietary filters
+    if (vegan && mealType !== "VEGAN") {
+      return false;
+    }
+    if (vegetarian && mealType !== "VEGAN" && mealType !== "VEGETARIAN") {
+      return false;
+    }
+    if (noPork && (mealType === "PORK" || mealType === "PORK_AW")) {
+      return false;
+    }
+
+    return true;
   });
 }
 
@@ -402,8 +686,26 @@ function summarizeLines(lines) {
 }
 
 function renderSummary(lines) {
-  const { mealCount, visibleLines } = summarizeLines(lines);
-  summaryMessage.textContent = `${visibleLines} lines, ${mealCount} meals, ${state.favorites.size} favorites`;
+  const { mealCount } = summarizeLines(lines);
+  const filterActive = Object.values(state.activeFilters).some(Boolean);
+  const filterIndicator = filterActive ? " (filtered)" : "";
+  summaryMessage.textContent = `${mealCount} meals${filterIndicator}`;
+}
+
+function renderSkeletons() {
+  const skeletonCard = `
+    <article class="skeleton-card" aria-hidden="true">
+      <div class="skeleton-shimmer skeleton-title"></div>
+      <div class="meal-layout">
+        <div class="skeleton-shimmer meal-skeleton-image"></div>
+        <div class="meal-content" style="display: grid; gap: 0.5rem;">
+          <div class="skeleton-shimmer skeleton-text"></div>
+          <div class="skeleton-shimmer skeleton-subtext"></div>
+        </div>
+      </div>
+    </article>
+  `;
+  mealPlanContainer.innerHTML = skeletonCard + skeletonCard + skeletonCard;
 }
 
 function renderMealPlan() {
@@ -426,6 +728,8 @@ function renderMealPlan() {
   renderSummary(lines);
 
   const mealImageGallery = new Map();
+  let totalRenderedMeals = 0;
+
   const lineMarkup = lines
     .map((line) => {
       const allMeals = Array.isArray(line.meals) ? line.meals : [];
@@ -437,6 +741,7 @@ function renderMealPlan() {
 
       const mealsMarkup = meals
         .map((meal) => {
+          totalRenderedMeals += 1;
           const mealId = String(meal.id ?? "");
           const mealName = String(meal.name ?? "Meal image");
           const isFavorite = state.favorites.has(mealId);
@@ -457,6 +762,7 @@ function renderMealPlan() {
             });
           }
 
+          const fetchPriority = totalRenderedMeals <= 2 ? `fetchpriority="high"` : "";
           const imageMarkup = hideImageForFreeMeal
             ? ""
             : imageUrls.length > 0
@@ -465,6 +771,8 @@ function renderMealPlan() {
                   <img
                     class="meal-image"
                     loading="lazy"
+                    decoding="async"
+                    ${fetchPriority}
                     src="${safeAttr(imageUrls[0])}"
                     alt="${safeAttr(mealName)}"
                     data-meal-id="${safeAttr(mealId)}"
@@ -524,10 +832,30 @@ function renderMealPlan() {
     lineMarkup || `<p class="empty">No meals match your current filters.</p>`;
 }
 
-async function fetchMealPlan(date) {
-  const response = await fetch(API_URL, {
+function transitionView(callback) {
+  if (
+    typeof document.startViewTransition === "function" &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) {
+    document.startViewTransition(callback);
+  } else {
+    callback();
+  }
+}
+
+async function fetchMealPlan(date, forceRefresh = false) {
+  const headers = { "Content-Type": "application/json" };
+  if (forceRefresh) {
+    headers["Cache-Control"] = "no-cache";
+    headers["Pragma"] = "no-cache";
+    headers["X-Refresh"] = "true";
+  }
+
+  const endpoint = forceRefresh ? `${API_URL}?refresh=1` : API_URL;
+
+  const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       query: GET_MEAL_PLAN_QUERY,
       variables: { date },
@@ -551,15 +879,25 @@ async function fetchMealPlan(date) {
   return canteens;
 }
 
-async function loadMealPlan() {
+async function loadMealPlan(options = {}) {
+  const forceRefresh = options.forceRefresh ?? false;
   const date = state.date;
-  state.date = date;
   renderDateDisplay();
 
   setStatus("");
+  state.isLoading = true;
+
+  if (forceRefresh) {
+    refreshButton.classList.add("refreshing");
+  }
+
+  // If container is empty, show skeleton loaders
+  if (!mealPlanContainer.hasChildNodes() || mealPlanContainer.querySelector(".empty")) {
+    renderSkeletons();
+  }
 
   try {
-    const canteens = await fetchMealPlan(date);
+    const canteens = await fetchMealPlan(date, forceRefresh);
     state.canteens = canteens;
     setLocalCache(date, canteens);
     setStatus("");
@@ -576,8 +914,10 @@ async function loadMealPlan() {
       setStatus(error.message || "Failed to load data.", "error");
     }
   } finally {
+    state.isLoading = false;
+    refreshButton.classList.remove("refreshing");
     renderCanteenOptions();
-    renderMealPlan();
+    transitionView(() => renderMealPlan());
   }
 }
 
@@ -597,6 +937,10 @@ function shiftDate(days) {
 
   state.date = toDateString(current);
   renderDateDisplay();
+  renderWeekStrip();
+  if (calendarState.isExpanded) {
+    renderMonthCalendar();
+  }
   void loadMealPlan();
 }
 
@@ -638,37 +982,210 @@ function setupInstallPrompt() {
   });
 }
 
-async function bootstrap() {
-  setZoomAllowed(false);
-  renderDateDisplay();
-  let isCurrentlyMobile = isMobileLayout();
-  state.controlsExpanded = !isCurrentlyMobile;
-  syncControlsVisibility();
+function setupTouchGestures() {
+  let touchStartX = 0;
+  let touchStartY = 0;
 
-  controlsToggleButton.addEventListener("click", () => {
-    if (!isMobileLayout()) return;
-    state.controlsExpanded = !state.controlsExpanded;
-    syncControlsVisibility();
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    "touchend",
+    (event) => {
+      if (imageModal.open) return;
+      if (isTextInputFocused()) return;
+      if (event.changedTouches.length !== 1) return;
+
+      const deltaX = event.changedTouches[0].clientX - touchStartX;
+      const deltaY = event.changedTouches[0].clientY - touchStartY;
+
+      // Ensure horizontal swipe is dominant and exceeds threshold (60px)
+      if (Math.abs(deltaX) > 60 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        if (deltaX < 0) {
+          // Swipe left -> Next day
+          shiftDate(1);
+        } else {
+          // Swipe right -> Prev day
+          shiftDate(-1);
+        }
+      }
+    },
+    { passive: true },
+  );
+}
+
+function setupLightboxGestures() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let currentX = 0;
+  let currentY = 0;
+  let isDragging = false;
+  let lastTapTime = 0;
+  const overlay = imageModal.querySelector(".lightbox-overlay");
+
+  if (!imageModalViewport) return;
+
+  imageModalViewport.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) return;
+
+      const now = Date.now();
+      if (now - lastTapTime < 300) {
+        event.preventDefault();
+        toggleModalZoom();
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+      currentX = touchStartX;
+      currentY = touchStartY;
+      isDragging = true;
+    },
+    { passive: false },
+  );
+
+  imageModalViewport.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!isDragging || event.touches.length !== 1) return;
+
+      currentX = event.touches[0].clientX;
+      currentY = event.touches[0].clientY;
+      const deltaX = currentX - touchStartX;
+      const deltaY = currentY - touchStartY;
+
+      if (modalState.isZoomed) {
+        modalState.translateX = deltaX / modalState.scale;
+        modalState.translateY = deltaY / modalState.scale;
+        imageModalContent.classList.add("dragging");
+        imageModalContent.style.transform = `scale(${modalState.scale}) translate3d(${modalState.translateX}px, ${modalState.translateY}px, 0)`;
+        return;
+      }
+
+      // Vertical drag down to dismiss
+      if (deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX) * 0.8) {
+        event.preventDefault();
+        imageModalContent.classList.add("dragging");
+        const progress = Math.min(deltaY / 400, 1);
+        const scaleVal = 1 - progress * 0.25;
+        imageModalContent.style.transform = `translate3d(0, ${deltaY}px, 0) scale(${scaleVal})`;
+        imageModal.style.backgroundColor = `rgba(4, 15, 13, ${0.96 * (1 - progress * 0.75)})`;
+        return;
+      }
+
+      // Horizontal swipe feedback
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        imageModalContent.classList.add("dragging");
+        imageModalContent.style.transform = `translate3d(${deltaX * 0.45}px, 0, 0)`;
+      }
+    },
+    { passive: false },
+  );
+
+  imageModalViewport.addEventListener(
+    "touchend",
+    () => {
+      if (!isDragging) return;
+      isDragging = false;
+      imageModalContent.classList.remove("dragging");
+
+      if (modalState.isZoomed) {
+        return;
+      }
+
+      const deltaX = currentX - touchStartX;
+      const deltaY = currentY - touchStartY;
+
+      // Check vertical swipe down to dismiss (threshold: 90px)
+      if (deltaY > 90 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        closeImageModal();
+        return;
+      }
+
+      // Check horizontal swipe (threshold: 45px)
+      if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX < 0) {
+          showNextModalImage();
+        } else {
+          showPreviousModalImage();
+        }
+        return;
+      }
+
+      resetModalZoom();
+    },
+    { passive: true },
+  );
+
+  imageModalContent.addEventListener("dblclick", (e) => {
+    e.stopPropagation();
+    toggleModalZoom();
   });
+}
+
+async function bootstrap() {
+  renderDateDisplay();
+  renderWeekStrip();
 
   canteenSelect.addEventListener("change", () => {
     state.selectedCanteenId = canteenSelect.value;
-    renderMealPlan();
+    transitionView(() => renderMealPlan());
   });
 
   priceModeSelect.addEventListener("change", () => {
     state.priceMode = priceModeSelect.value;
-    renderMealPlan();
+    transitionView(() => renderMealPlan());
   });
 
-  searchInput.addEventListener("input", () => {
-    state.searchQuery = searchInput.value;
-    renderMealPlan();
+  if (todayButton) {
+    todayButton.addEventListener("click", () => {
+      const todayStr = toDateString(new Date());
+      if (state.date !== todayStr) {
+        state.date = todayStr;
+        renderDateDisplay();
+        renderWeekStrip();
+        void loadMealPlan();
+      }
+    });
+  }
+
+  filterChips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const filterKey = chip.dataset.filter;
+      if (!filterKey || !(filterKey in state.activeFilters)) return;
+
+      state.activeFilters[filterKey] = !state.activeFilters[filterKey];
+      chip.setAttribute("aria-pressed", String(state.activeFilters[filterKey]));
+      transitionView(() => renderMealPlan());
+    });
   });
+
+  if (calendarToggleBtn) {
+    calendarToggleBtn.addEventListener("click", () => toggleMonthCalendar());
+  }
+
+  if (monthPrevBtn) {
+    monthPrevBtn.addEventListener("click", () => shiftCalendarMonth(-1));
+  }
+
+  if (monthNextBtn) {
+    monthNextBtn.addEventListener("click", () => shiftCalendarMonth(1));
+  }
 
   prevDayButton.addEventListener("click", () => shiftDate(-1));
   refreshButton.addEventListener("click", () => {
-    void loadMealPlan();
+    void loadMealPlan({ forceRefresh: true });
   });
   nextDayButton.addEventListener("click", () => shiftDate(1));
 
@@ -694,13 +1211,34 @@ async function bootstrap() {
   });
 
   imageModalClose.addEventListener("click", closeImageModal);
-  imageModalPrev.addEventListener("click", showPreviousModalImage);
-  imageModalNext.addEventListener("click", showNextModalImage);
+  imageModalPrev.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showPreviousModalImage();
+  });
+  imageModalNext.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showNextModalImage();
+  });
 
   imageModal.addEventListener("click", (event) => {
-    if (event.target === imageModal) {
-      closeImageModal();
+    const target = event.target;
+    if (
+      target === imageModal ||
+      target.classList.contains("lb-body") ||
+      target.classList.contains("lb-img-container") ||
+      target.id === "imageModalViewport"
+    ) {
+      if (modalState.isZoomed) {
+        resetModalZoom();
+      } else {
+        closeImageModal();
+      }
     }
+  });
+
+  imageModal.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeImageModal();
   });
 
   window.addEventListener("keydown", (event) => {
@@ -712,7 +1250,7 @@ async function bootstrap() {
     const isPrev = key === "a" || key === "arrowleft";
     const isNext = key === "d" || key === "arrowright";
 
-    if (!imageModal.hidden) {
+    if (imageModal.open) {
       if (event.key === "Escape") {
         closeImageModal();
       } else if (isPrev) {
@@ -739,31 +1277,11 @@ async function bootstrap() {
   });
 
   window.addEventListener("resize", () => {
-    const nextMobileState = isMobileLayout();
-    if (nextMobileState !== isCurrentlyMobile) {
-      isCurrentlyMobile = nextMobileState;
-      state.controlsExpanded = !nextMobileState;
-      syncControlsVisibility();
-      renderMealPlan();
-    }
+    renderDateDisplay();
   });
 
-  // iOS Safari pinch gestures can bypass viewport settings unless explicitly blocked.
-  const blockGestureWhenNotModal = (event) => {
-    if (imageModal.hidden) {
-      event.preventDefault();
-    }
-  };
-  window.addEventListener("gesturestart", blockGestureWhenNotModal, {
-    passive: false,
-  });
-  window.addEventListener("gesturechange", blockGestureWhenNotModal, {
-    passive: false,
-  });
-  window.addEventListener("gestureend", blockGestureWhenNotModal, {
-    passive: false,
-  });
-
+  setupTouchGestures();
+  setupLightboxGestures();
   setupInstallPrompt();
 
   if ("serviceWorker" in navigator) {

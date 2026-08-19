@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 const API_URL = "https://api.mensa-ka.de/";
 const PROXY_ENDPOINT = "/api/";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+const CACHE_TTL_SECONDS = 900; // 15 minutes edge TTL
 
 interface Env {
 	POLICY_AUD: string;
@@ -72,13 +73,20 @@ async function requireCloudflareAccess(request: Request, env: Env) {
 	}
 }
 
+function addSecurityHeaders(headers: Headers) {
+	headers.set("X-Content-Type-Options", "nosniff");
+	headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+}
+
 function addCorsHeaders(headers: Headers, request: Request) {
 	headers.set("Access-Control-Allow-Origin", "*");
 	headers.set("Access-Control-Allow-Methods", "GET,HEAD,POST,OPTIONS");
 	headers.set(
 		"Access-Control-Allow-Headers",
-		request.headers.get("Access-Control-Request-Headers") ?? "Content-Type",
+		request.headers.get("Access-Control-Request-Headers") ??
+			"Content-Type, Cache-Control, Pragma, X-Refresh",
 	);
+	headers.set("Access-Control-Expose-Headers", "X-Cache-Status");
 }
 
 function rewritePlaygroundHtml(body: string) {
@@ -116,13 +124,88 @@ async function rewritePlaygroundResponse(
 	});
 }
 
+function isForceRefreshRequested(request: Request, url: URL): boolean {
+	const cacheControl = request.headers.get("Cache-Control")?.toLowerCase() ?? "";
+	const pragma = request.headers.get("Pragma")?.toLowerCase() ?? "";
+	const refreshHeader = request.headers.get("X-Refresh")?.toLowerCase() ?? "";
+
+	return (
+		cacheControl.includes("no-cache") ||
+		cacheControl.includes("max-age=0") ||
+		pragma.includes("no-cache") ||
+		refreshHeader === "true" ||
+		refreshHeader === "1" ||
+		url.searchParams.has("refresh")
+	);
+}
+
+function createGraphQLCacheKey(requestUrl: URL, bodyText: string): Request {
+	let keyParam = "";
+	try {
+		const parsed = JSON.parse(bodyText);
+		const op = parsed.operationName ?? "query";
+		const date = parsed.variables?.date ?? "";
+		keyParam = `${op}:${date}`;
+	} catch {
+		keyParam = "raw:" + bodyText.slice(0, 80);
+	}
+
+	const cacheUrl = new URL(requestUrl.toString());
+	cacheUrl.searchParams.set("__gql_key", keyParam);
+	return new Request(cacheUrl.toString(), { method: "GET" });
+}
+
+function getCloudflareCache(): Cache | null {
+	try {
+		return typeof caches !== "undefined" && caches.default ? caches.default : null;
+	} catch {
+		return null;
+	}
+}
+
 async function handleRequest(request: Request) {
 	const url = new URL(request.url);
 	const proxiedPath = url.pathname.replace(PROXY_ENDPOINT, "");
 	const upstreamUrl = new URL(proxiedPath, API_URL);
 	upstreamUrl.search = url.search;
 
-	const upstream = new Request(upstreamUrl, request);
+	const forceRefresh = isForceRefreshRequested(request, url);
+	const isGraphQLPost = request.method === "POST" && proxiedPath === "";
+
+	let bodyText = "";
+	let cacheKeyRequest: Request | null = null;
+	const cache = getCloudflareCache();
+
+	if (isGraphQLPost) {
+		bodyText = await request.text();
+		cacheKeyRequest = createGraphQLCacheKey(url, bodyText);
+
+		// If this is a standard request (not a manual refresh), try checking edge cache
+		if (!forceRefresh && cache && cacheKeyRequest) {
+			const cachedResponse = await cache.match(cacheKeyRequest);
+			if (cachedResponse) {
+				const headers = new Headers(cachedResponse.headers);
+				addCorsHeaders(headers, request);
+				addSecurityHeaders(headers);
+				headers.set("X-Cache-Status", "HIT");
+				return new Response(cachedResponse.body, {
+					status: cachedResponse.status,
+					statusText: cachedResponse.statusText,
+					headers,
+				});
+			}
+		}
+	}
+
+	const upstreamRequestInit: RequestInit = {
+		method: request.method,
+		headers: new Headers(request.headers),
+	};
+	if (isGraphQLPost) {
+		upstreamRequestInit.body = bodyText;
+	}
+
+	const upstream = new Request(upstreamUrl, upstreamRequestInit);
 	upstream.headers.set("Origin", new URL(API_URL).origin);
 
 	const upstreamResponse = await fetch(upstream);
@@ -131,10 +214,38 @@ async function handleRequest(request: Request) {
 		upstreamResponse,
 		proxiedPath,
 	);
+
 	const headers = new Headers(response.headers);
 	addCorsHeaders(headers, request);
+	addSecurityHeaders(headers);
 
-	return new Response(response.body, {
+	const cacheStatus = forceRefresh ? "BYPASS" : "MISS";
+	headers.set("X-Cache-Status", cacheStatus);
+
+	const responseText = await response.text();
+
+	// Cache successful GraphQL responses in Cloudflare Edge Cache
+	if (isGraphQLPost && response.ok && cache && cacheKeyRequest) {
+		const cacheHeaders = new Headers(headers);
+		cacheHeaders.set(
+			"Cache-Control",
+			`public, max-age=${CACHE_TTL_SECONDS}, s-maxage=${CACHE_TTL_SECONDS}`,
+		);
+
+		const responseToCache = new Response(responseText, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: cacheHeaders,
+		});
+
+		try {
+			await cache.put(cacheKeyRequest, responseToCache);
+		} catch {
+			// Ignore cache storage errors in environments without cache support
+		}
+	}
+
+	return new Response(responseText, {
 		status: response.status,
 		statusText: response.statusText,
 		headers,
@@ -144,6 +255,7 @@ async function handleRequest(request: Request) {
 function handleOptions(request: Request) {
 	const headers = new Headers();
 	addCorsHeaders(headers, request);
+	addSecurityHeaders(headers);
 	headers.set("Access-Control-Max-Age", "86400");
 
 	return new Response(null, {
@@ -152,7 +264,7 @@ function handleOptions(request: Request) {
 	});
 }
 
-export { handleRequest, rewritePlaygroundHtml };
+export { handleRequest, rewritePlaygroundHtml, isForceRefreshRequested, createGraphQLCacheKey };
 
 export default {
 	async fetch(request: Request, env: Env) {
