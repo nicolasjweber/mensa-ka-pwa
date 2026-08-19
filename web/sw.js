@@ -1,4 +1,4 @@
-const SHELL_CACHE = "mensa-ka-pwa-shell-v61";
+const SHELL_CACHE = "mensa-ka-pwa-shell-v63";
 const IMAGE_CACHE = "mensa-ka-pwa-images-v1";
 const MAX_IMAGE_CACHE_ENTRIES = 120;
 
@@ -12,6 +12,7 @@ const SHELL_ASSETS = [
   "./assets/icons/manifest-icon-192.maskable.png",
   "./assets/icons/manifest-icon-512.maskable.png",
   "./assets/icons/apple-icon-180.png",
+  "./assets/icons/apple-icon-512.png",
 ];
 
 const VALID_CACHES = new Set([SHELL_CACHE, IMAGE_CACHE]);
