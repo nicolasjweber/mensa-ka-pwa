@@ -1,4 +1,4 @@
-const SHELL_CACHE = "mensa-ka-pwa-shell-v63";
+const SHELL_CACHE = "mensa-ka-pwa-shell-v65";
 const IMAGE_CACHE = "mensa-ka-pwa-images-v1";
 const MAX_IMAGE_CACHE_ENTRIES = 120;
 

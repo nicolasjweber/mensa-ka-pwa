@@ -73,19 +73,24 @@ const modalState = {
   translateY: 0,
 };
 
+const themeToggleButton = document.getElementById("themeToggleButton");
+const lineJumpNav = document.getElementById("lineJumpNav");
+const lineJumpList = document.getElementById("lineJumpList");
+const mealPlanHeading = document.getElementById("mealPlanHeading");
 const canteenSelect = document.getElementById("canteenSelect");
 const priceModeSelect = document.getElementById("priceModeSelect");
 const prevDayButton = document.getElementById("prevDayButton");
 const refreshButton = document.getElementById("refreshButton");
 const nextDayButton = document.getElementById("nextDayButton");
 const todayButton = document.getElementById("todayButton");
+const datePickerContainer = document.getElementById("datePickerContainer");
 const calendarToggleBtn = document.getElementById("calendarToggleBtn");
-const calendarToggleText = document.getElementById("calendarToggleText");
 const dateDisplay = document.getElementById("dateDisplay");
 const weekDaysStrip = document.getElementById("weekDaysStrip");
 const monthCalendar = document.getElementById("monthCalendar");
 const monthPrevBtn = document.getElementById("monthPrevBtn");
 const monthNextBtn = document.getElementById("monthNextBtn");
+const nextWeekBtn = document.getElementById("nextWeekBtn");
 const monthLabel = document.getElementById("monthLabel");
 const monthDaysGrid = document.getElementById("monthDaysGrid");
 const statusMessage = document.getElementById("statusMessage");
@@ -103,11 +108,81 @@ const imageModalViewport = document.getElementById("imageModalViewport");
 const imageModalDots = document.getElementById("imageModalDots");
 const filterChips = document.querySelectorAll(".filter-chip");
 
+const STAR_ICON_SVG = `<svg class="rating-star-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.93 5.94 6.56.95-4.74 4.62 1.12 6.53L12 17.46l-5.87 3.08 1.12-6.53L2.51 9.39l6.56-.95L12 2.5z"/></svg>`;
+
+function getHeartIconSvg(isFavorite) {
+  return `<svg viewBox="0 0 24 24" fill="${isFavorite ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>`;
+}
+
+const MEAL_TYPE_ICON_PATHS = {
+  VEGAN: `<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8Z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2Z"/>`,
+  VEGETARIAN: `<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>`,
+  FISH: `<path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6Z"/><path d="M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86"/><path d="M7 10.67C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/>`,
+  MEAT: `<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>`,
+};
+
+function getMealTypeIconSvg(rawType) {
+  let paths = MEAL_TYPE_ICON_PATHS.MEAT;
+  if (rawType === "VEGAN") {
+    paths = MEAL_TYPE_ICON_PATHS.VEGAN;
+  } else if (rawType === "VEGETARIAN") {
+    paths = MEAL_TYPE_ICON_PATHS.VEGETARIAN;
+  } else if (rawType === "FISH") {
+    paths = MEAL_TYPE_ICON_PATHS.FISH;
+  }
+  return `<svg class="tag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
+function setupThemeToggle() {
+  if (!themeToggleButton) return;
+  const schemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (!schemeMeta) return;
+
+  const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
+  const getSystemScheme = () => (darkMq.matches ? "dark" : "light");
+  const getEffectiveScheme = () => {
+    if (schemeMeta.content === "light" || schemeMeta.content === "dark") {
+      return schemeMeta.content;
+    }
+    return getSystemScheme();
+  };
+
+  const syncThemeButton = () => {
+    const isDark = getEffectiveScheme() === "dark";
+    themeToggleButton.title = isDark ? "Switch to light theme" : "Switch to dark theme";
+  };
+
+  syncThemeButton();
+  darkMq.addEventListener("change", syncThemeButton);
+
+  themeToggleButton.addEventListener("click", () => {
+    const target = getEffectiveScheme() === "dark" ? "light" : "dark";
+    const system = getSystemScheme();
+    const isUndoToSystem = target === system;
+
+    try {
+      if (isUndoToSystem) {
+        localStorage.removeItem("color-scheme");
+      } else {
+        localStorage.setItem("color-scheme", target);
+      }
+    } catch {
+      // Ignore storage failures in restricted contexts
+    }
+
+    schemeMeta.content = isUndoToSystem ? "light dark" : target;
+    syncThemeButton();
+  });
+}
+
 const SHORT_WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   month: "long",
   year: "numeric",
+});
+const SHORT_MONTH_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  month: "short",
 });
 
 const calendarState = {
@@ -198,18 +273,26 @@ function renderWeekStrip() {
     const dayStr = toDateString(dayDate);
     const isSelected = dayStr === state.date;
     const isToday = dayStr === todayStr;
+    const shortMonth = SHORT_MONTH_FORMATTER.format(dayDate);
 
     const tab = document.createElement("button");
     tab.type = "button";
-    tab.className = `day-tab ${isSelected ? "active" : ""}`.trim();
-    tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", String(isSelected));
-    tab.setAttribute("aria-label", `${SHORT_WEEKDAYS[i]}, ${dayDate.getDate()}`);
+    tab.className = ["day-tab", isSelected ? "active" : "", isToday ? "is-today" : ""]
+      .filter(Boolean)
+      .join(" ");
+    tab.setAttribute("aria-pressed", String(isSelected));
+    if (isToday) {
+      tab.setAttribute("aria-current", "date");
+    }
+    tab.setAttribute(
+      "aria-label",
+      `${SHORT_WEEKDAYS[i]}, ${dayDate.getDate()} ${shortMonth}${isToday ? " (Today)" : ""}`,
+    );
 
     tab.innerHTML = `
       <span class="day-name">${SHORT_WEEKDAYS[i]}</span>
       <span class="day-num">${dayDate.getDate()}</span>
-      ${isToday ? '<span class="today-dot" title="Today"></span>' : ""}
+      <span class="day-sub">${isToday ? "Today" : shortMonth}</span>
     `;
 
     tab.addEventListener("click", () => {
@@ -336,9 +419,6 @@ function toggleMonthCalendar(forceOpen) {
   if (calendarToggleBtn) {
     calendarToggleBtn.setAttribute("aria-expanded", String(nextExpanded));
   }
-  if (calendarToggleText) {
-    calendarToggleText.textContent = nextExpanded ? "Close" : "Month";
-  }
 }
 
 function shiftCalendarMonth(offset) {
@@ -462,9 +542,66 @@ function toggleModalZoom() {
   }
 }
 
+let supportsDisplayTransition;
+let isClosingModal = false;
+
+function canTransitionDisplay() {
+  if (supportsDisplayTransition !== undefined) return supportsDisplayTransition;
+  if (!window.CSS?.supports?.("transition-behavior", "allow-discrete") || !document.body) {
+    return false;
+  }
+  const probe = document.createElement("div");
+  probe.style.cssText = "transition: display 1s allow-discrete !important; display: block;";
+  document.body.appendChild(probe);
+  getComputedStyle(probe).display;
+  probe.style.display = "none";
+  supportsDisplayTransition = getComputedStyle(probe).display === "block";
+  probe.remove();
+  return supportsDisplayTransition;
+}
+
+function supportsTopLayerExit() {
+  return window.CSS?.supports?.("overlay", "auto") && canTransitionDisplay();
+}
+
+async function closeTopLayer(element) {
+  if (typeof element.close === "function") {
+    if (!supportsTopLayerExit()) {
+      element.setAttribute("data-closing", "");
+      const animations = element.getAnimations({ subtree: true });
+      if (animations.length > 0) {
+        await Promise.race([
+          Promise.allSettled(animations.map((animation) => animation.finished)),
+          new Promise((resolve) => setTimeout(resolve, 2000)),
+        ]);
+      }
+      if (!element.hasAttribute("data-closing")) return;
+      element.removeAttribute("data-closing");
+    }
+    if (element.open) {
+      element.close();
+    }
+  } else {
+    element.removeAttribute("open");
+    cleanupClosedModal();
+  }
+}
+
+function cleanupClosedModal() {
+  imageModal.removeAttribute("data-closing");
+  isClosingModal = false;
+  imageModalContent.src = "";
+  modalState.urls = [];
+  modalState.index = 0;
+  modalState.mealName = "";
+  resetModalZoom();
+}
+
 function openImageModal(urls, startIndex, mealName) {
   if (!Array.isArray(urls) || urls.length === 0) return;
 
+  imageModal.removeAttribute("data-closing");
+  isClosingModal = false;
   modalState.urls = urls;
   modalState.index = Number.isInteger(startIndex) ? startIndex : 0;
   modalState.mealName = String(mealName ?? "");
@@ -477,23 +614,18 @@ function openImageModal(urls, startIndex, mealName) {
   } else {
     imageModal.setAttribute("open", "");
   }
-  document.body.style.overflow = "hidden";
 }
 
-function closeImageModal() {
-  if (typeof imageModal.close === "function") {
-    if (imageModal.open) {
-      imageModal.close();
-    }
-  } else {
-    imageModal.removeAttribute("open");
+async function closeImageModal() {
+  if (isClosingModal) return;
+  if (!imageModal.open && !imageModal.hasAttribute("open")) return;
+
+  isClosingModal = true;
+  try {
+    await closeTopLayer(imageModal);
+  } finally {
+    isClosingModal = false;
   }
-  imageModalContent.src = "";
-  modalState.urls = [];
-  modalState.index = 0;
-  modalState.mealName = "";
-  resetModalZoom();
-  document.body.style.overflow = "";
 }
 
 function isTextInputFocused() {
@@ -606,16 +738,16 @@ function renderRating(ratings) {
   const count = ratings?.ratingsCount;
 
   if (typeof average !== "number" || typeof count !== "number" || count <= 0) {
-    return `<span class="rating-number">No ratings yet</span>`;
+    return `<span class="meal-rating"><span class="rating-number">No ratings yet</span></span>`;
   }
 
   const clampedAverage = Math.min(5, Math.max(0, average));
-  const fullStars = Math.round(clampedAverage);
-  const stars = "\u2605".repeat(fullStars) + "\u2606".repeat(5 - fullStars);
 
   return `
-    <span class="rating-stars" role="img" aria-label="${clampedAverage.toFixed(1)} of 5 stars">${stars}</span>
-    <span class="rating-number">${clampedAverage.toFixed(1)}/5 (${count})</span>
+    <span class="meal-rating" aria-label="${clampedAverage.toFixed(1)} of 5 stars from ${count} ratings">
+      ${STAR_ICON_SVG}
+      <span class="rating-number">${clampedAverage.toFixed(1)}/5 (${count})</span>
+    </span>
   `;
 }
 
@@ -693,24 +825,49 @@ function renderSummary(lines) {
 }
 
 function renderSkeletons() {
+  const skeletonMeal = `
+    <div class="skeleton-meal" aria-hidden="true">
+      <div class="skeleton-shimmer meal-skeleton-image"></div>
+      <div class="skeleton-meal-body">
+        <div class="skeleton-shimmer skeleton-text"></div>
+        <div class="skeleton-shimmer skeleton-subtext"></div>
+      </div>
+    </div>
+  `;
   const skeletonCard = `
     <article class="skeleton-card" aria-hidden="true">
       <div class="skeleton-shimmer skeleton-title"></div>
-      <div class="meal-layout">
-        <div class="skeleton-shimmer meal-skeleton-image"></div>
-        <div class="meal-content" style="display: grid; gap: 0.5rem;">
-          <div class="skeleton-shimmer skeleton-text"></div>
-          <div class="skeleton-shimmer skeleton-subtext"></div>
-        </div>
+      <div class="skeleton-meals-grid">
+        ${skeletonMeal}
+        ${skeletonMeal}
       </div>
     </article>
   `;
-  mealPlanContainer.innerHTML = skeletonCard + skeletonCard + skeletonCard;
+  mealPlanContainer.innerHTML = skeletonCard + skeletonCard;
+}
+
+function renderLineJumpNav(visibleLines) {
+  if (!lineJumpNav || !lineJumpList) return;
+
+  if (!Array.isArray(visibleLines) || visibleLines.length <= 1) {
+    lineJumpList.innerHTML = "";
+    lineJumpNav.hidden = true;
+    return;
+  }
+
+  lineJumpList.innerHTML = visibleLines
+    .map(
+      ({ id, name }) =>
+        `<li><a class="line-jump-link" href="#${safeAttr(id)}">${safeText(name)}</a></li>`,
+    )
+    .join("");
+  lineJumpNav.hidden = false;
 }
 
 function renderMealPlan() {
   if (state.canteens.length === 0 || !state.selectedCanteenId) {
     state.mealImageGallery = new Map();
+    renderLineJumpNav([]);
     mealPlanContainer.innerHTML = `<p class="empty">No meal data available.</p>`;
     summaryMessage.textContent = "";
     return;
@@ -719,6 +876,7 @@ function renderMealPlan() {
   const canteen = state.canteens.find((entry) => entry.id === state.selectedCanteenId);
   if (!canteen) {
     state.mealImageGallery = new Map();
+    renderLineJumpNav([]);
     mealPlanContainer.innerHTML = `<p class="empty">No meal data available.</p>`;
     summaryMessage.textContent = "";
     return;
@@ -728,6 +886,8 @@ function renderMealPlan() {
   renderSummary(lines);
 
   const mealImageGallery = new Map();
+  const visibleLines = [];
+  const usedLineIds = new Set();
   let totalRenderedMeals = 0;
 
   const lineMarkup = lines
@@ -739,20 +899,36 @@ function renderMealPlan() {
         return "";
       }
 
+      const rawLineSlug =
+        String(line.id ?? line.name ?? `line-${visibleLines.length + 1}`)
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, "-")
+          .replace(/^-+|-+$/g, "") || `line-${visibleLines.length + 1}`;
+      let lineAnchorId = `line-${rawLineSlug}`;
+      let suffix = 2;
+      while (usedLineIds.has(lineAnchorId)) {
+        lineAnchorId = `line-${rawLineSlug}-${suffix++}`;
+      }
+      usedLineIds.add(lineAnchorId);
+      visibleLines.push({ id: lineAnchorId, name: line.name });
+
       const mealsMarkup = meals
         .map((meal) => {
           totalRenderedMeals += 1;
           const mealId = String(meal.id ?? "");
           const mealName = String(meal.name ?? "Meal image");
           const isFavorite = state.favorites.has(mealId);
+          const favLabel = isFavorite
+            ? `Remove ${mealName} from favorites`
+            : `Save ${mealName} as favorite`;
           const selectedPrice = meal?.price?.[state.priceMode];
           const hideImageForFreeMeal = selectedPrice === 0 && isMobileLayout();
           const mealTypeLabel = humanMealType(meal.mealType);
           const mealTypeTag =
             mealTypeLabel === "Unknown"
               ? ""
-              : `<span class="tag">${safeText(mealTypeLabel)}</span>`;
-          const priceTag = `<span class="tag price-tag">${formatPrice(selectedPrice)}</span>`;
+              : `<span class="tag" data-meal-type="${safeAttr(meal.mealType || "UNKNOWN")}">${getMealTypeIconSvg(meal.mealType)}<span>${safeText(mealTypeLabel)}</span></span>`;
+          const priceTag = `<span class="price-tag">${formatPrice(selectedPrice)}</span>`;
           const imageUrls = getMealImageUrls(meal);
 
           if (!hideImageForFreeMeal && imageUrls.length > 0) {
@@ -763,50 +939,57 @@ function renderMealPlan() {
           }
 
           const fetchPriority = totalRenderedMeals <= 2 ? `fetchpriority="high"` : "";
-          const imageMarkup = hideImageForFreeMeal
-            ? ""
-            : imageUrls.length > 0
+          const photoCountLabel = imageUrls.length === 1 ? "photo" : `${imageUrls.length} photos`;
+          const imageMarkup =
+            !hideImageForFreeMeal && imageUrls.length > 0
               ? `
                 <div class="meal-image-wrap">
-                  <img
-                    class="meal-image"
-                    loading="lazy"
-                    decoding="async"
-                    ${fetchPriority}
-                    src="${safeAttr(imageUrls[0])}"
-                    alt="${safeAttr(mealName)}"
+                  <button
+                    type="button"
+                    class="meal-image-trigger"
                     data-meal-id="${safeAttr(mealId)}"
                     data-image-index="0"
-                  />
+                    aria-label="View ${photoCountLabel} for ${safeAttr(mealName)}"
+                  >
+                    <img
+                      class="meal-image"
+                      loading="lazy"
+                      decoding="async"
+                      ${fetchPriority}
+                      src="${safeAttr(imageUrls[0])}"
+                      alt="${safeAttr(mealName)}"
+                    />
+                  </button>
                   ${
                     imageUrls.length > 1
-                      ? `<span class="meal-image-count">${imageUrls.length}x</span>`
+                      ? `<span class="meal-image-count" aria-hidden="true">${imageUrls.length}x</span>`
                       : ""
                   }
                 </div>
               `
-              : `<div class="meal-image-placeholder">No image</div>`;
-          const layoutClass = hideImageForFreeMeal ? "meal-layout no-image" : "meal-layout";
+              : "";
 
           return `
             <article class="meal-item">
-              <div class="${layoutClass}">
+              <div class="meal-layout">
                 ${imageMarkup}
                 <div class="meal-content">
                   <div class="meal-head">
                     <h3 class="meal-name">${safeText(mealName)}</h3>
                     <button
+                      type="button"
                       class="favorite-button"
-                      data-favorite-id="${safeText(mealId)}"
-                      aria-label="Toggle favorite"
-                      title="Toggle favorite"
-                    >${isFavorite ? "\u2665" : "\u2661"}</button>
+                      data-favorite-id="${safeAttr(mealId)}"
+                      aria-pressed="${isFavorite}"
+                      aria-label="${safeAttr(favLabel)}"
+                      title="${safeAttr(favLabel)}"
+                    >${getHeartIconSvg(isFavorite)}</button>
                   </div>
-                  <p class="meal-meta">
+                  <div class="meal-footer">
                     ${mealTypeTag}
+                    ${renderRating(meal.ratings)}
                     ${priceTag}
-                  </p>
-                  <p class="meal-meta meal-rating">${renderRating(meal.ratings)}</p>
+                  </div>
                 </div>
               </div>
             </article>
@@ -815,12 +998,17 @@ function renderMealPlan() {
         .join("");
 
       return `
-        <article class="line-card">
+        <article class="line-card" id="${safeAttr(lineAnchorId)}">
           <div class="line-head">
-            <h2>${safeText(line.name)}</h2>
+            <div class="line-title-wrap">
+              <span class="line-accent" aria-hidden="true"></span>
+              <h2>${safeText(line.name)}</h2>
+            </div>
             <span class="line-count">${meals.length} ${meals.length === 1 ? "meal" : "meals"}</span>
           </div>
-          ${mealsMarkup}
+          <div class="line-meals-grid">
+            ${mealsMarkup}
+          </div>
         </article>
       `;
     })
@@ -828,18 +1016,36 @@ function renderMealPlan() {
     .join("");
 
   state.mealImageGallery = mealImageGallery;
+  renderLineJumpNav(visibleLines);
   mealPlanContainer.innerHTML =
     lineMarkup || `<p class="empty">No meals match your current filters.</p>`;
 }
 
-function transitionView(callback) {
+function focusMealPlanHeading() {
+  if (mealPlanHeading) {
+    mealPlanHeading.focus({ preventScroll: true });
+  }
+}
+
+function transitionView(callback, { focusHeading = false } = {}) {
+  const hadFocusInPlan =
+    document.activeElement instanceof Node &&
+    mealPlanContainer.contains(document.activeElement);
+  const shouldMoveFocus = focusHeading || hadFocusInPlan;
+
   if (
     typeof document.startViewTransition === "function" &&
     !window.matchMedia("(prefers-reduced-motion: reduce)").matches
   ) {
-    document.startViewTransition(callback);
+    const transition = document.startViewTransition(callback);
+    if (shouldMoveFocus) {
+      void transition.finished.then(focusMealPlanHeading).catch(() => {});
+    }
   } else {
     callback();
+    if (shouldMoveFocus) {
+      focusMealPlanHeading();
+    }
   }
 }
 
@@ -946,6 +1152,10 @@ function shiftDate(days) {
 
 function toggleFavorite(mealId) {
   if (!mealId) return;
+  const restoreFocus =
+    document.activeElement instanceof Node &&
+    mealPlanContainer.contains(document.activeElement);
+
   if (state.favorites.has(mealId)) {
     state.favorites.delete(mealId);
   } else {
@@ -953,6 +1163,17 @@ function toggleFavorite(mealId) {
   }
   persistFavorites();
   renderMealPlan();
+
+  if (restoreFocus) {
+    const nextButton = Array.from(mealPlanContainer.querySelectorAll(".favorite-button")).find(
+      (button) => button.dataset.favoriteId === mealId,
+    );
+    if (nextButton instanceof HTMLElement) {
+      nextButton.focus({ preventScroll: true });
+    } else {
+      focusMealPlanHeading();
+    }
+  }
 }
 
 function setupInstallPrompt() {
@@ -1028,7 +1249,6 @@ function setupLightboxGestures() {
   let currentY = 0;
   let isDragging = false;
   let lastTapTime = 0;
-  const overlay = imageModal.querySelector(".lightbox-overlay");
 
   if (!imageModalViewport) return;
 
@@ -1137,6 +1357,7 @@ function setupLightboxGestures() {
 async function bootstrap() {
   renderDateDisplay();
   renderWeekStrip();
+  setupThemeToggle();
 
   canteenSelect.addEventListener("change", () => {
     state.selectedCanteenId = canteenSelect.value;
@@ -1155,6 +1376,9 @@ async function bootstrap() {
         state.date = todayStr;
         renderDateDisplay();
         renderWeekStrip();
+        if (calendarState.isExpanded) {
+          toggleMonthCalendar(false);
+        }
         void loadMealPlan();
       }
     });
@@ -1183,6 +1407,26 @@ async function bootstrap() {
     monthNextBtn.addEventListener("click", () => shiftCalendarMonth(1));
   }
 
+  if (nextWeekBtn) {
+    nextWeekBtn.addEventListener("click", () => {
+      shiftDate(5);
+      if (calendarState.isExpanded) {
+        toggleMonthCalendar(false);
+      }
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    if (
+      calendarState.isExpanded &&
+      datePickerContainer &&
+      event.target instanceof Node &&
+      !datePickerContainer.contains(event.target)
+    ) {
+      toggleMonthCalendar(false);
+    }
+  });
+
   prevDayButton.addEventListener("click", () => shiftDate(-1));
   refreshButton.addEventListener("click", () => {
     void loadMealPlan({ forceRefresh: true });
@@ -1191,11 +1435,12 @@ async function bootstrap() {
 
   mealPlanContainer.addEventListener("click", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
+    if (!(target instanceof Element)) return;
 
-    if (target.classList.contains("meal-image")) {
-      const mealId = target.dataset.mealId || "";
-      const imageIndex = Number.parseInt(target.dataset.imageIndex || "0", 10) || 0;
+    const imageTrigger = target.closest(".meal-image-trigger[data-meal-id]");
+    if (imageTrigger instanceof HTMLElement) {
+      const mealId = imageTrigger.dataset.mealId || "";
+      const imageIndex = Number.parseInt(imageTrigger.dataset.imageIndex || "0", 10) || 0;
       const galleryInfo = state.mealImageGallery.get(mealId);
 
       if (galleryInfo?.urls?.length > 0) {
@@ -1204,13 +1449,18 @@ async function bootstrap() {
       return;
     }
 
-    const favoriteId = target.dataset.favoriteId;
-    if (favoriteId) {
-      toggleFavorite(favoriteId);
+    const favoriteButton = target.closest(".favorite-button[data-favorite-id]");
+    if (favoriteButton instanceof HTMLElement) {
+      const favoriteId = favoriteButton.dataset.favoriteId;
+      if (favoriteId) {
+        toggleFavorite(favoriteId);
+      }
     }
   });
 
-  imageModalClose.addEventListener("click", closeImageModal);
+  imageModalClose.addEventListener("click", () => {
+    void closeImageModal();
+  });
   imageModalPrev.addEventListener("click", (e) => {
     e.stopPropagation();
     showPreviousModalImage();
@@ -1220,8 +1470,26 @@ async function bootstrap() {
     showNextModalImage();
   });
 
+  if (!("closedBy" in HTMLDialogElement.prototype)) {
+    imageModal.addEventListener("click", (event) => {
+      if (event.target !== imageModal) return;
+
+      const rect = imageModal.getBoundingClientRect();
+      const isDialogContent =
+        rect.top <= event.clientY &&
+        event.clientY <= rect.top + rect.height &&
+        rect.left <= event.clientX &&
+        event.clientX <= rect.left + rect.width;
+
+      if (!isDialogContent) {
+        void closeImageModal();
+      }
+    });
+  }
+
   imageModal.addEventListener("click", (event) => {
     const target = event.target;
+    if (!(target instanceof Element)) return;
     if (
       target === imageModal ||
       target.classList.contains("lb-body") ||
@@ -1231,15 +1499,17 @@ async function bootstrap() {
       if (modalState.isZoomed) {
         resetModalZoom();
       } else {
-        closeImageModal();
+        void closeImageModal();
       }
     }
   });
 
   imageModal.addEventListener("cancel", (event) => {
     event.preventDefault();
-    closeImageModal();
+    void closeImageModal();
   });
+
+  imageModal.addEventListener("close", cleanupClosedModal);
 
   window.addEventListener("keydown", (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) {
@@ -1251,8 +1521,8 @@ async function bootstrap() {
     const isNext = key === "d" || key === "arrowright";
 
     if (imageModal.open) {
-      if (event.key === "Escape") {
-        closeImageModal();
+      if (event.key === "Escape" && typeof imageModal.showModal !== "function") {
+        void closeImageModal();
       } else if (isPrev) {
         event.preventDefault();
         showPreviousModalImage();
@@ -1260,6 +1530,13 @@ async function bootstrap() {
         event.preventDefault();
         showNextModalImage();
       }
+      return;
+    }
+
+    if (event.key === "Escape" && calendarState.isExpanded) {
+      event.preventDefault();
+      toggleMonthCalendar(false);
+      calendarToggleBtn?.focus();
       return;
     }
 

@@ -7,7 +7,9 @@
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest run",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"screenshot": "node scripts/update-screenshot.mjs",
+		"prepare": "node scripts/install-hooks.mjs"
 	},
 	"dependencies": {
 		"jose": "^6.1.0"

@@ -1,47 +1,15 @@
-# MensaApp PWA PoC
+# Mensa Karlsruhe PWA (`web/`)
 
-Simple progressive web app proof-of-concept for browsing meal plans from the Mensa KA API.
+Static Progressive Web App frontend served by the Cloudflare Worker at `/` (`wrangler.jsonc` `assets.directory`).
 
-## Features
+## Architecture
 
-- Reads canteen meal plans via the Cloudflare worker GraphQL proxy
-- Date navigation (defaults to today, switch with prev/next)
-- Prev/next date navigation automatically skips Saturdays and Sundays
-- English date display with relative labels (`Today`, `Yesterday`, `Tomorrow`)
-- Canteen selector and meal search
-- Price mode switch (student, employee, pupil, guest)
-- Meal ratings from other users (0-5 stars + rating count)
-- Meal photos from API (top-ranked image per meal, with fallback if missing)
-- Fullscreen image gallery for each meal (Prev/Next buttons, arrow keys, Esc close)
-- Keyboard shortcuts: `A`/`D` for previous/next day, and also previous/next image in fullscreen mode
-- Mobile zoom is disabled in normal app view to avoid accidental zooming, but enabled in fullscreen image mode
-- Local favorites (stored in browser localStorage)
-- Installs as a PWA (manifest + service worker)
-- Uses local cached data when offline and no live request succeeds
+- [`index.html`](index.html): App shell markup, inline FOUC-prevention `color-scheme` initializer, header actions (theme toggle, force refresh, PWA install), canteen/price selectors, filter chips, week strip & expandable month calendar, quick line-jump nav, meal plan container, and native `<dialog id="imageModal">` lightbox.
+- [`styles.css`](styles.css): Layered CSS (`@layer reset, base, theme, components, utilities`), `light-dark()` theming with `@media (prefers-color-scheme: dark)` fallbacks, container-query `.meal-item` cards (`container: meal-card / inline-size`), dietary badge styling, shimmer skeletons, and top-layer `<dialog>` entry/exit animations.
+- [`app.js`](app.js): GraphQL query client against `/api/`, client-side meal filtering, week/month weekday date navigation (skipping weekends), View Transitions & accessible focus routing, `localStorage` meal & favorite persistence, touch gestures, and lightbox controls (`A`/`D` or arrow keys, pinch/double-tap zoom, swipe-to-dismiss).
+- [`sw.js`](sw.js): Service Worker (`mensa-ka-pwa-shell-v65` Network-First shell cache, `mensa-ka-pwa-images-v1` Cache-First meal image cache up to 120 entries).
+- [`manifest.webmanifest`](manifest.webmanifest) & `assets/icons/`: PWA manifest, maskable icons, Apple touch icons, and iOS startup splash screens.
 
-## Run locally
+## Local Development & Screenshots
 
-Serve the PWA through the Cloudflare worker so the app and `/api/` share one origin:
-
-```powershell
-cd cors-header-proxy
-npx wrangler dev
-```
-
-Then open:
-
-`http://localhost:8787`
-
-## Deploy to Cloudflare
-
-The worker is configured to publish this folder as static assets and keep the GraphQL proxy on `/api/`.
-
-```powershell
-cd cors-header-proxy
-npx wrangler deploy
-```
-
-## Notes
-
-- This is intentionally a lightweight PoC, not a full replacement of the Flutter app.
-- GraphQL mutations are not included.
+See the root [`README.md`](../README.md) for local development (`npm run dev`), testing (`npm test`), and automatic screenshot regeneration (`npm run screenshot`).

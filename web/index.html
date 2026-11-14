@@ -4,8 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#009682">
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1916">
+    <script>
+      try {
+        var storedScheme = localStorage.getItem("color-scheme");
+        if (storedScheme === "light" || storedScheme === "dark") {
+          document.querySelector('meta[name="color-scheme"]').content = storedScheme;
+        }
+      } catch (e) {}
+    </script>
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#008775">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b1211">
     <title>Mensa Karlsruhe</title>
     <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="./assets/icons/icon.svg">
@@ -59,20 +67,66 @@
   </head>
   <body>
     <header class="header">
+      <a href="#mealPlanHeading" class="skip-link visually-hidden">Skip to meal plan</a>
       <div class="hero">
-        <h1>Mensa Karlsruhe</h1>
-        <p class="subtitle">Implements api.mensa-ka.de as a Progressive Web App</p>
+        <div class="brand-row">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/>
+              <path d="M7 2v20"/>
+              <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h1>Mensa Karlsruhe</h1>
+            <p class="subtitle">Implements api.mensa-ka.de as a Progressive Web App</p>
+          </div>
+        </div>
       </div>
       <div class="header-actions">
+        <button id="themeToggleButton" class="header-btn icon-only-btn" type="button" title="Toggle color theme">
+          <span class="theme-opt theme-opt-dark">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            </svg>
+            <span class="visually-hidden">Switch to dark theme</span>
+          </span>
+          <span class="theme-opt theme-opt-light">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2"/>
+              <path d="M12 20v2"/>
+              <path d="m4.93 4.93 1.41 1.41"/>
+              <path d="m17.66 17.66 1.41 1.41"/>
+              <path d="M2 12h2"/>
+              <path d="M20 12h2"/>
+              <path d="m6.34 17.66-1.41 1.41"/>
+              <path d="m19.07 4.93-1.41 1.41"/>
+            </svg>
+            <span class="visually-hidden">Switch to light theme</span>
+          </span>
+        </button>
         <button id="refreshButton" class="header-btn" type="button" aria-label="Refresh meal plan from server" title="Refresh">
-          <span id="refreshIcon" class="refresh-icon" aria-hidden="true">&#x21bb;</span>
+          <svg id="refreshIcon" class="btn-icon refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+            <path d="M8 16H3v5"/>
+          </svg>
           <span class="btn-text">Refresh</span>
         </button>
-        <button id="installButton" class="install-button" hidden="">Install App</button>
+        <button id="installButton" class="header-btn install-button" type="button" hidden="">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" x2="12" y1="15" y2="3"/>
+          </svg>
+          <span class="btn-text">Install</span>
+        </button>
       </div>
     </header>
     <main class="main">
-      <section class="controls-card">
+      <section class="controls-card" aria-label="Meal filters and date navigation">
         <div class="selectors-row">
           <div class="control-field canteen-field">
             <label for="canteenSelect">Canteen</label>
@@ -92,56 +146,118 @@
             </div>
           </div>
           <div class="control-field filters-field">
-            <label>Filters</label>
-            <div class="filter-chips" role="group" aria-label="Dietary and preference filters">
-              <button id="chipVegan" class="filter-chip" type="button" data-filter="vegan" aria-pressed="false">🌱 Vegan</button>
-              <button id="chipVegetarian" class="filter-chip" type="button" data-filter="vegetarian" aria-pressed="false">🧀 Vegetarian</button>
-              <button id="chipNoPork" class="filter-chip" type="button" data-filter="noPork" aria-pressed="false">🚫 No Pork</button>
-              <button id="chipFavorites" class="filter-chip" type="button" data-filter="favoritesOnly" aria-pressed="false">❤️ Favorites</button>
+            <span class="field-label" id="filtersGroupLabel">Filters</span>
+            <div class="filter-chips" role="group" aria-labelledby="filtersGroupLabel">
+              <button id="chipVegan" class="filter-chip" type="button" data-filter="vegan" aria-pressed="false">
+                <svg class="chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+                <span>Vegan</span>
+              </button>
+              <button id="chipVegetarian" class="filter-chip" type="button" data-filter="vegetarian" aria-pressed="false">
+                <svg class="chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M7 20h10"/>
+                  <path d="M10 20c5.5-2.5.8-6.4 3-10"/>
+                  <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/>
+                  <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>
+                </svg>
+                <span>Vegetarian</span>
+              </button>
+              <button id="chipNoPork" class="filter-chip" type="button" data-filter="noPork" aria-pressed="false">
+                <svg class="chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="m4.9 4.9 14.2 14.2"/>
+                </svg>
+                <span>No Pork</span>
+              </button>
+              <button id="chipFavorites" class="filter-chip" type="button" data-filter="favoritesOnly" aria-pressed="false">
+                <svg class="chip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                </svg>
+                <span>Favorites</span>
+              </button>
               <span id="summaryMessage" class="summary-badge" aria-live="polite"></span>
             </div>
           </div>
         </div>
 
-        <div class="week-strip-container">
+        <div id="datePickerContainer" class="week-strip-container">
           <div class="week-strip-header">
-            <div class="week-strip-header-left">
-              <button id="calendarToggleBtn" class="calendar-toggle-btn" type="button" aria-expanded="false" title="Toggle month calendar view" aria-label="Toggle month calendar view">
-                <span class="cal-icon" aria-hidden="true">&#x1F4C5;</span>
-                <span id="calendarToggleText" class="cal-toggle-text">Month</span>
+            <button id="prevDayButton" class="nav-arrow-btn" type="button" aria-label="Previous weekday (A or Left Arrow)" title="Previous weekday (A or Left Arrow)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m15 18-6-6 6-6"/>
+              </svg>
+            </button>
+
+            <div class="date-center-group">
+              <button id="calendarToggleBtn" class="date-display-btn calendar-toggle-btn" type="button" aria-expanded="false" aria-controls="monthCalendar">
+                <svg class="cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M8 2v4"/>
+                  <path d="M16 2v4"/>
+                  <rect width="18" height="18" x="3" y="4" rx="2"/>
+                  <path d="M3 10h18"/>
+                </svg>
+                <span id="dateDisplay" class="week-title" aria-live="polite"></span>
+                <span class="visually-hidden"> — toggle month calendar</span>
+                <svg class="cal-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </button>
+              <button id="todayButton" class="today-pill-btn" type="button" hidden="">
+                <svg class="today-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+                <span>Today</span>
               </button>
             </div>
-            <div class="week-strip-nav">
-              <button id="prevDayButton" class="nav-arrow-btn" type="button" aria-label="Previous day (A or Left Arrow)">&#10094;</button>
-              <span id="dateDisplay" class="week-title" aria-live="polite"></span>
-              <button id="nextDayButton" class="nav-arrow-btn" type="button" aria-label="Next day (D or Right Arrow)">&#10095;</button>
-            </div>
-            <div class="week-strip-header-right">
-              <button id="todayButton" class="today-pill-btn" type="button">Today</button>
-            </div>
+
+            <button id="nextDayButton" class="nav-arrow-btn" type="button" aria-label="Next weekday (D or Right Arrow)" title="Next weekday (D or Right Arrow)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
           </div>
-          <div id="weekDaysStrip" class="week-days-strip" role="tablist" aria-label="Select day of the week">
-            <!-- Day tabs (Mon-Fri) rendered by JavaScript -->
+
+          <div id="weekDaysStrip" class="week-days-strip" role="group" aria-label="Weekdays">
+            <!-- Day buttons (Mon-Fri) rendered by JavaScript -->
           </div>
 
           <div id="monthCalendar" class="month-calendar" hidden="">
             <div class="month-header-bar">
-              <button id="monthPrevBtn" class="nav-arrow-btn" type="button" aria-label="Previous month">&#10094;</button>
+              <button id="monthPrevBtn" class="nav-arrow-btn" type="button" aria-label="Previous month">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+              </button>
               <span id="monthLabel" class="month-title" aria-live="polite"></span>
-              <button id="monthNextBtn" class="nav-arrow-btn" type="button" aria-label="Next month">&#10095;</button>
+              <div class="month-header-actions">
+                <button id="nextWeekBtn" class="cal-quick-btn" type="button">+1 Week</button>
+                <button id="monthNextBtn" class="nav-arrow-btn" type="button" aria-label="Next month">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m9 18 6-6-6-6"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="month-weekdays-header" aria-hidden="true">
-              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span class="wknd-hdr">Sat</span><span class="wknd-hdr">Sun</span>
             </div>
             <div id="monthDaysGrid" class="month-days-grid" role="grid" aria-label="Month calendar days">
               <!-- Rendered by JavaScript -->
             </div>
           </div>
         </div>
+
+        <nav id="lineJumpNav" class="line-jump-nav" aria-label="Canteen lines" hidden="">
+          <ul id="lineJumpList" class="line-jump-list" role="list"></ul>
+        </nav>
       </section>
       <section class="meta">
         <p id="statusMessage" class="status" role="status" aria-live="polite"></p>
       </section>
+      <h2 id="mealPlanHeading" class="visually-hidden" tabindex="-1">Daily Meal Plan</h2>
       <section id="mealPlanContainer" class="meal-plan" aria-live="polite"></section>
     </main>
     <footer class="footer">
@@ -149,21 +265,34 @@
         View on GitHub
       </a>
     </footer>
-    <dialog id="imageModal" class="lightbox-dialog" aria-label="Meal photo viewer">
+    <dialog id="imageModal" class="lightbox-dialog" closedby="any" aria-labelledby="imageModalCaption">
       <div class="lb-header">
         <div class="lb-title-wrap">
-          <span id="imageModalCaption" class="lb-title"></span>
+          <h2 id="imageModalCaption" class="lb-title"></h2>
           <span id="imageModalCounter" class="lb-counter"></span>
         </div>
-        <button id="imageModalClose" class="lb-btn lb-close" type="button" aria-label="Close photo viewer">&times;</button>
+        <button id="imageModalClose" class="lb-btn lb-close" type="button" autofocus aria-label="Close photo viewer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18"/>
+            <path d="m6 6 12 12"/>
+          </svg>
+        </button>
       </div>
       <div class="lb-body">
-        <button id="imageModalPrev" class="lb-nav-btn lb-prev" type="button" aria-label="Previous photo">&#10094;</button>
+        <button id="imageModalPrev" class="lb-nav-btn lb-prev" type="button" aria-label="Previous photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </button>
         <div id="imageModalViewport" class="lb-img-container">
           <div id="imageModalSpinner" class="lb-spinner" aria-hidden="true"></div>
           <img id="imageModalContent" class="lb-img" alt="Meal photo" draggable="false">
         </div>
-        <button id="imageModalNext" class="lb-nav-btn lb-next" type="button" aria-label="Next photo">&#10095;</button>
+        <button id="imageModalNext" class="lb-nav-btn lb-next" type="button" aria-label="Next photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </button>
       </div>
       <div class="lb-footer">
         <div id="imageModalDots" class="lb-dots" role="tablist" aria-label="Photo pagination"></div>
