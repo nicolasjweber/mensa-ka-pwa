@@ -58,9 +58,7 @@ mensa-ka-pwa/
 │   ├── install-hooks.mjs         # Configures git core.hooksPath -> .githooks
 │   └── fixtures/                 # Deterministic dish thumbnails used for screenshots
 ├── .githooks/
-│   └── pre-commit                # Auto-updates screenshots when staged files change in web/
-├── .github/workflows/
-│   └── update-screenshot.yml     # CI workflow keeping screenshots synced on push to main/master
+│   └── pre-commit                # Auto-updates screenshots on staged web/ or screenshot script changes
 ├── assets/
 │   ├── screenshot.png            # Light-mode README screenshot (auto-generated)
 │   └── screenshot-dark.png       # Dark-mode README screenshot (auto-generated)
@@ -88,11 +86,10 @@ npx tsc --noEmit
 
 ## Automatic Screenshot Updates
 
-Both [`assets/screenshot.png`](assets/screenshot.png) and [`assets/screenshot-dark.png`](assets/screenshot-dark.png) stay synchronized automatically with `./web` changes through three mechanisms:
+Both [`assets/screenshot.png`](assets/screenshot.png) and [`assets/screenshot-dark.png`](assets/screenshot-dark.png) stay synchronized automatically with `./web` changes through two mechanisms:
 
 1. **Manual Command (`npm run screenshot`)**: [`scripts/update-screenshot.mjs`](scripts/update-screenshot.mjs) launches an ephemeral local server serving `./web`, deterministic Wednesday menu/fixture data (`scripts/fixtures/dish-1.png`, `dish-2.png`), and captures both light and dark `1140×960` (`2x` DPR) PNG screenshots via headless Chrome or Microsoft Edge (set `CHROME_PATH` to override the executable path).
-2. **Git Pre-Commit Hook (`.githooks/pre-commit`)**: Enabled automatically by `npm install` via `prepare` (`node scripts/install-hooks.mjs`, configuring `git config core.hooksPath .githooks`). Whenever you commit staged changes under `web/`, the hook regenerates and stages both screenshot PNGs.
-3. **GitHub Actions (`.github/workflows/update-screenshot.yml`)**: On any push to `main` or `master` changing `web/**` or `scripts/update-screenshot.mjs`, CI regenerates the screenshots and commits any changes with `[skip ci]`.
+2. **Git Pre-Commit Hook (`.githooks/pre-commit`)**: Enabled automatically by `npm install` via `prepare` (`node scripts/install-hooks.mjs`, configuring `git config core.hooksPath .githooks`). Whenever you commit staged changes under `web/`, `scripts/update-screenshot.mjs`, or `scripts/fixtures/`, the hook regenerates and stages both screenshot PNGs.
 
 ## Deployment
 

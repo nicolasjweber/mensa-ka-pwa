@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-if git diff --cached --name-only | grep -q '^web/'; then
-  echo "Detected staged changes in web/. Updating README screenshots..."
+if git diff --cached --name-only | grep -qE '^(web/|scripts/update-screenshot\.mjs|scripts/fixtures/)'; then
+  echo "Detected staged frontend or screenshot asset changes. Updating README screenshots..."
   node scripts/update-screenshot.mjs
   git add assets/screenshot.png assets/screenshot-dark.png
 fi
